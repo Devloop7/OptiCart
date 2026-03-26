@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { success, handleApiError } from "@/lib/api-response";
 import { PanicLogger } from "@/lib/panic-logger";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
