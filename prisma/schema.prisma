@@ -1,0 +1,319 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum StoreType {
+  SHOPIFY
+  WOOCOMMERCE
+  EBAY
+  TIKTOK_SHOP
+}
+
+enum SupplierPlatform {
+  ALIEXPRESS
+  CJ_DROPSHIPPING
+  AMAZON
+  CUSTOM
+}
+
+enum OrderStatus {
+  PENDING
+  PRICE_ALERT
+  STOCK_ALERT
+  APPROVED
+  PLACED
+  SHIPPED
+  DELIVERED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum WatcherStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+  COMPLETED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  OUT_OF_STOCK
+  DISCONTINUED
+  ERROR
+}
+
+model User {
+  id              String           @id @default(cuid())
+  name            String?
+  email           String           @unique
+  emailVerified   DateTime?
+  image           String?
+  hashedPassword  String?
+  subscriptionTier SubscriptionTier @default(FREE)
+  maxStores       Int              @default(1)
+  maxProducts     Int              @default(100)
+  settings        Json             @default("{}")
+  failedLoginAttempts Int          @default(0)
+  lockedUntil     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  stores          Store[]
+  credentialVaults CredentialVault[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Store {
+  id              String    @id @default(cuid())
+  userId          String
+  name            String
+  storeType       StoreType
+  domain          String?
+  apiEndpoint     String?
+  isActive        Boolean          @default(true)
+  lastSyncAt      DateTime?
+  settings        Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products        Product[]
+  automatedOrders AutomatedOrder[]
+  credentialVault CredentialVault?
+
+  @@index([userId])
+  @@map("stores")
+}
+
+model Supplier {
+  id              String           @id @default(cuid())
+  platform        SupplierPlatform
+  name            String
+  sourceUrl       String
+  metadata        Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  products        Product[]
+
+  @@index([platform])
+  @@map("suppliers")
+}
+
+model Product {
+  id                String        @id @default(cuid())
+  storeId           String
+  supplierId        String?
+  externalProductId String?
+  supplierProductId String?
+  title             String
+  description       String?       @db.Text
+  images            Json          @default("[]")
+  supplierPrice     Decimal       @db.Decimal(10, 2)
+  sellingPrice      Decimal       @db.Decimal(10, 2)
+  markupRule        Json?
+  currency          String        @default("USD")
+  supplierStock     Int           @default(0)
+  status            ProductStatus @default(DRAFT)
+  lastCheckedAt     DateTime?
+  autoSync          Boolean       @default(true)
+  variants          Json          @default("[]")
+  tags              String[]      @default([])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  store             Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  supplier          Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  priceHistory      PriceHistory[]
+  watcherTasks      WatcherTask[]
+  automatedOrders   AutomatedOrder[]
+
+  @@index([storeId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([externalProductId])
+  @@map("products")
+}
+
+model AutomatedOrder {
+  id                String      @id @default(cuid())
+  storeId           String
+  productId         String
+  externalOrderId   String?
+  supplierOrderId   String?
+  status            OrderStatus @default(PENDING)
+  previousStatus    OrderStatus?
+  customerName      String?
+  customerAddress   Json?
+  quantity          Int         @default(1)
+  supplierCost      Decimal     @db.Decimal(10, 2)
+  sellingPrice      Decimal     @db.Decimal(10, 2)
+  profit            Decimal     @db.Decimal(10, 2)
+  priceAtOrder      Decimal?    @db.Decimal(10, 2)
+  priceAtLastCheck  Decimal?    @db.Decimal(10, 2)
+  trackingNumber    String?
+  notes             String?     @db.Text
+  errorLog          String?     @db.Text
+  pauseReason       String?
+  placedAt          DateTime?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  store             Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product           Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("automated_orders")
+}
+
+model CredentialVault {
+  id              String    @id @default(cuid())
+  userId          String
+  storeId         String?   @unique
+  label           String
+  platform        String
+  encryptedData   String    @db.Text
+  iv              String
+  authTag         String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store           Store?    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("credential_vaults")
+}
+
+model WatcherTask {
+  id              String        @id @default(cuid())
+  productId       String
+  status          WatcherStatus @default(ACTIVE)
+  intervalMinutes Int           @default(60)
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+  consecutiveFails Int          @default(0)
+  lastError       String?       @db.Text
+  metadata        Json          @default("{}")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRunAt])
+  @@index([productId])
+  @@map("watcher_tasks")
+}
+
+model PriceHistory {
+  id              String   @id @default(cuid())
+  productId       String
+  oldPrice        Decimal  @db.Decimal(10, 2)
+  newPrice        Decimal  @db.Decimal(10, 2)
+  oldStock        Int?
+  newStock        Int?
+  source          String   @default("watcher")
+  detectedAt      DateTime @default(now())
+
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, detectedAt])
+  @@map("price_history")
+}
+
+model SystemLock {
+  id        String   @id @default(cuid())
+  isLocked  Boolean  @default(false)
+  reason    String?
+  lockedBy  String?
+  lockedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_locks")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  details   String?  @db.Text
+  severity  String   @default("info")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([severity])
+  @@map("activity_logs")
+}
+
+model PanicLog {
+  id        String   @id @default(cuid())
+  action    String
+  context   String?  @db.Text
+  error     String?  @db.Text
+  timestamp DateTime @default(now())
+
+  @@index([timestamp])
+  @@map("panic_logs")
+}
