@@ -127,19 +127,23 @@ function ProductSkeleton() {
 function ProductCard({
   product,
   onImport,
+  onSelect,
 }: {
   product: SourcedProduct;
   onImport: (id: string) => void;
+  onSelect: (product: SourcedProduct) => void;
 }) {
   const retailPrice = (product.price * MARKUP).toFixed(2);
-  const freeShipping = product.shippingOptions.some((s) => s.cost === 0);
-  const fastestShip = product.shippingOptions[0];
+  const profitPerItem = (product.price * MARKUP - product.price).toFixed(2);
+  const marginPct = Math.round(((product.price * MARKUP - product.price) / (product.price * MARKUP)) * 100);
+  const freeShipping = product.shippingOptions?.some((s) => s.cost === 0);
+  const fastestShip = product.shippingOptions?.[0];
 
   return (
-    <Card className="overflow-hidden group hover:shadow-md transition-shadow">
+    <Card className="overflow-hidden group hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect(product)}>
       {/* Image */}
       <div className="relative aspect-square bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
-        {product.images[0] ? (
+        {product.images?.[0] ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={product.images[0]}
@@ -188,16 +192,17 @@ function ProductCard({
         <div className="space-y-0.5">
           <div className="flex items-baseline gap-2">
             <span className="text-base font-bold text-zinc-900 dark:text-white">
-              ${product.price.toFixed(2)}
+              ${Number(product.price).toFixed(2)}
             </span>
+            <span className="text-xs text-zinc-400">cost</span>
             {product.originalPrice && product.originalPrice > product.price && (
               <span className="text-xs text-zinc-400 line-through">
-                ${product.originalPrice.toFixed(2)}
+                ${Number(product.originalPrice).toFixed(2)}
               </span>
             )}
           </div>
           <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            Sell for ${retailPrice} ({MARKUP}x markup)
+            Sell for ${retailPrice} &middot; ${profitPerItem} profit ({marginPct}%)
           </div>
         </div>
 
@@ -205,33 +210,52 @@ function ProductCard({
         <div className="flex items-center gap-2 text-xs text-zinc-500">
           <div className="flex items-center gap-0.5">
             <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-            <span className="font-medium">{product.rating.toFixed(1)}</span>
+            <span className="font-medium">{Number(product.rating).toFixed(1)}</span>
           </div>
           <span className="text-zinc-300 dark:text-zinc-600">|</span>
-          <span>{product.totalOrders.toLocaleString()} sold</span>
+          <span>{Number(product.totalOrders).toLocaleString()} sold</span>
+          {product.variants?.length > 0 && (
+            <>
+              <span className="text-zinc-300 dark:text-zinc-600">|</span>
+              <span>{product.variants.length} variants</span>
+            </>
+          )}
         </div>
 
         {/* Shipping */}
-        <div className="flex items-center gap-1 text-xs text-zinc-500">
-          <Truck className="h-3.5 w-3.5 shrink-0" />
-          {freeShipping ? (
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Free shipping</span>
-          ) : (
-            <span>${fastestShip?.cost.toFixed(2)} shipping</span>
-          )}
-          {fastestShip && (
-            <span className="text-zinc-400 ml-1">({fastestShip.days}d)</span>
+        {product.shippingOptions?.length > 0 && (
+          <div className="flex items-center gap-1 text-xs text-zinc-500">
+            <Truck className="h-3.5 w-3.5 shrink-0" />
+            {freeShipping ? (
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">Free shipping</span>
+            ) : fastestShip ? (
+              <span>${Number(fastestShip.cost).toFixed(2)} shipping</span>
+            ) : null}
+            {fastestShip?.days && (
+              <span className="text-zinc-400 ml-1">({fastestShip.days}d)</span>
+            )}
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div className="flex gap-2 mt-1">
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={(e) => { e.stopPropagation(); onImport(product.externalId); }}
+          >
+            Import
+          </Button>
+          {product.sourceUrl && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => { e.stopPropagation(); window.open(product.sourceUrl, "_blank"); }}
+            >
+              Source
+            </Button>
           )}
         </div>
-
-        {/* Import button */}
-        <Button
-          size="sm"
-          className="w-full mt-1"
-          onClick={() => onImport(product.externalId)}
-        >
-          Import Product
-        </Button>
       </CardContent>
     </Card>
   );
@@ -249,6 +273,7 @@ export default function DiscoverPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SearchResult | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<SourcedProduct | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -413,6 +438,7 @@ export default function DiscoverPage() {
               key={product.externalId}
               product={product}
               onImport={handleImport}
+              onSelect={setSelectedProduct}
             />
           ))}
         </div>
@@ -442,6 +468,108 @@ export default function DiscoverPage() {
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
+        </div>
+      )}
+
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSelectedProduct(null)}>
+          <div className="bg-white dark:bg-zinc-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
+              <h2 className="text-lg font-bold">Product Details</h2>
+              <button onClick={() => setSelectedProduct(null)} className="text-zinc-400 hover:text-zinc-600 text-xl">&times;</button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Images */}
+              <div className="grid grid-cols-4 gap-2">
+                {(selectedProduct.images || []).slice(0, 4).map((img, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={img} alt="" className="rounded-lg aspect-square object-cover w-full" />
+                ))}
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold">{selectedProduct.title}</h3>
+
+              {/* Price & Profit */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-3">
+                  <div className="text-xs text-zinc-500">Supplier Cost</div>
+                  <div className="text-lg font-bold">${Number(selectedProduct.price).toFixed(2)}</div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-950 rounded-lg p-3">
+                  <div className="text-xs text-emerald-600">Sell For (2.5x)</div>
+                  <div className="text-lg font-bold text-emerald-600">${(Number(selectedProduct.price) * MARKUP).toFixed(2)}</div>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-3">
+                  <div className="text-xs text-blue-600">Profit Per Sale</div>
+                  <div className="text-lg font-bold text-blue-600">${(Number(selectedProduct.price) * MARKUP - Number(selectedProduct.price)).toFixed(2)}</div>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="flex items-center gap-4 text-sm text-zinc-500">
+                <div className="flex items-center gap-1">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span className="font-medium">{Number(selectedProduct.rating).toFixed(1)}</span>
+                </div>
+                <span>{Number(selectedProduct.totalOrders).toLocaleString()} orders</span>
+                {selectedProduct.variants?.length > 0 && <span>{selectedProduct.variants.length} variants</span>}
+              </div>
+
+              {/* Variants */}
+              {selectedProduct.variants?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Variants</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProduct.variants.map((v) => (
+                      <div key={v.id} className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 text-sm">
+                        {v.name} — ${Number(v.price).toFixed(2)}
+                        {v.stock > 0 && <span className="text-zinc-400 ml-1">({v.stock} in stock)</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Shipping */}
+              {selectedProduct.shippingOptions?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Shipping Options</h4>
+                  <div className="space-y-1">
+                    {selectedProduct.shippingOptions.map((s, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-400">
+                        <span>{s.carrier}</span>
+                        <span>{s.cost === 0 ? <span className="text-emerald-600 font-medium">Free</span> : `$${Number(s.cost).toFixed(2)}`} &middot; {s.days} days</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedProduct.description && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Description</h4>
+                  <p className="text-sm text-zinc-500 line-clamp-6">{selectedProduct.description}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <Button className="flex-1" onClick={() => { setSelectedProduct(null); handleImport(selectedProduct.externalId); }}>
+                  Import to My Store
+                </Button>
+                {selectedProduct.sourceUrl && (
+                  <Button variant="outline" onClick={() => window.open(selectedProduct.sourceUrl, "_blank")}>
+                    View on AliExpress
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
