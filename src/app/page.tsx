@@ -310,12 +310,12 @@ export default function LandingPage() {
             {[
               { name: "Shopify", icon: "🛍️" },
               { name: "AliExpress", icon: "🛒" },
-              { name: "AutoDS", icon: "🤖" },
               { name: "CJ Dropshipping", icon: "📦" },
-              { name: "Spocket", icon: "🚀" },
-              { name: "DSers", icon: "⚡" },
-              { name: "Zendrop", icon: "💎" },
+              { name: "Alibaba / 1688", icon: "🏭" },
               { name: "WooCommerce", icon: "🔮" },
+              { name: "eBay", icon: "🏷️" },
+              { name: "TikTok Shop", icon: "🎵" },
+              { name: "Google Analytics", icon: "📊" },
             ].map((platform) => (
               <div
                 key={platform.name}
