@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CreditCard, Check, Zap } from "lucide-react";
+import { CreditCard, Check, Zap, Crown, TrendingUp, Shield, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,30 +89,45 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Billing & Plans</h1>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Billing & Plans</h1>
+          <p className="text-sm text-zinc-500">Manage your subscription and track usage</p>
+        </div>
+      </div>
 
-      {/* Current Plan */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            <CardTitle className="text-base">Current Plan</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 mb-4">
+      {/* Current Plan — Hero card */}
+      <Card className="overflow-hidden border-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+        <CardContent className="p-6 text-white">
+          <div className="flex items-start justify-between">
             <div>
-              <span className="text-2xl font-bold">{currentPlan.name}</span>
-              <span className="text-zinc-500 ml-2">
-                {currentPlan.monthlyPrice === 0 ? "Free" : `$${currentPlan.monthlyPrice}/mo`}
-              </span>
+              <p className="text-sm font-medium text-white/70">Current Plan</p>
+              <h2 className="mt-1 text-3xl font-extrabold">{currentPlan.name}</h2>
+              <p className="mt-1 text-sm text-white/80">
+                {currentPlan.monthlyPrice === 0 ? "Free forever" : `$${currentPlan.monthlyPrice}/month`}
+              </p>
             </div>
-            <Badge variant="success">{currentPlan.tier}</Badge>
+            <div className="rounded-xl bg-white/20 p-3 backdrop-blur-sm">
+              <Crown className="h-6 w-6 text-white" />
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+            {[
+              { label: "Products", value: `${currentPlan.maxProducts.toLocaleString()} max` },
+              { label: "Orders", value: `${currentPlan.maxOrdersMonth.toLocaleString()}/mo` },
+              { label: "Stores", value: `${currentPlan.maxStores} stores` },
+              { label: "AI Requests", value: `${currentPlan.maxAiRequests}/mo` },
+            ].map((item) => (
+              <div key={item.label} className="text-sm">
+                <span className="text-white/60">{item.label}: </span>
+                <span className="font-semibold">{item.value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
             {currentPlan.features.map((f, i) => (
-              <div key={i} className="flex items-center gap-1 text-sm text-zinc-600 dark:text-zinc-400">
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
+              <div key={i} className="flex items-center gap-1 text-xs text-white/80">
+                <Check className="h-3 w-3 text-white" />
                 {f}
               </div>
             ))}
@@ -144,12 +159,24 @@ export default function BillingPage() {
               return (
                 <div
                   key={plan.tier}
-                  className={`rounded-lg border p-4 ${
+                  className={`relative rounded-xl border-2 p-5 transition-all ${
                     isCurrent
-                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
-                      : "border-zinc-200 dark:border-zinc-700"
+                      ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm"
+                      : plan.tier === "PRO"
+                      ? "border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/10 shadow-md"
+                      : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600"
                   }`}
                 >
+                  {plan.tier === "PRO" && !isCurrent && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-0.5 text-[10px] font-bold text-white">
+                      Most Popular
+                    </div>
+                  )}
+                  {isCurrent && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-0.5 text-[10px] font-bold text-white">
+                      Current Plan
+                    </div>
+                  )}
                   <div className="mb-3">
                     <h3 className="font-bold text-lg">{plan.name}</h3>
                     <p className="text-2xl font-bold">

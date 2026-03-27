@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { NotificationDropdown } from "@/components/layout/notification-dropdown";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { CommandPalette } from "@/components/layout/command-palette";
 import { LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,14 +41,17 @@ function Topbar() {
     <header className="flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-6 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex items-center gap-4">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{title}</h2>
-        {/* Global search */}
-        <div className="relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
-          <Input
-            placeholder="Search products, orders..."
-            className="h-8 w-64 bg-zinc-50 pl-9 text-xs dark:bg-zinc-800"
-          />
-        </div>
+        {/* Global search — triggers command palette */}
+        <button
+          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+          className="relative hidden md:flex items-center gap-2 h-8 w-64 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs text-zinc-400 hover:bg-zinc-100 transition-colors dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-750"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="flex-1 text-left">Search...</span>
+          <kbd className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] font-medium dark:border-zinc-600 dark:bg-zinc-700">
+            Ctrl+K
+          </kbd>
+        </button>
       </div>
       <div className="flex items-center gap-2">
         <ThemeToggle />
@@ -76,6 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

@@ -172,6 +172,62 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
+      {/* Order Timeline */}
+      <Card>
+        <CardContent className="py-6">
+          <div className="flex items-center justify-between">
+            {[
+              { key: "NEW", label: "Order Placed", icon: Clock },
+              { key: "IN_PROGRESS", label: "Processing", icon: Package },
+              { key: "ORDERED_FROM_SUPPLIER", label: "Ordered", icon: Truck },
+              { key: "SHIPPED", label: "Shipped", icon: Truck },
+              { key: "DELIVERED", label: "Delivered", icon: CheckCircle },
+            ].map((step, i, arr) => {
+              const statusOrder = ["NEW", "IN_PROGRESS", "ORDERED_FROM_SUPPLIER", "SHIPPED", "DELIVERED"];
+              const currentIdx = statusOrder.indexOf(order.status);
+              const stepIdx = statusOrder.indexOf(step.key);
+              const isCompleted = stepIdx <= currentIdx && order.status !== "CANCELLED" && order.status !== "ERROR";
+              const isCurrent = step.key === order.status;
+              const isCancelled = order.status === "CANCELLED" || order.status === "ERROR";
+
+              return (
+                <div key={step.key} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all ${
+                      isCancelled && isCurrent
+                        ? "border-red-500 bg-red-50 dark:bg-red-950/20"
+                        : isCompleted
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
+                        : isCurrent
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                        : "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+                    }`}>
+                      {isCancelled && isCurrent ? (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      ) : isCompleted ? (
+                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <step.icon className={`h-4 w-4 ${isCurrent ? "text-blue-500" : "text-zinc-300 dark:text-zinc-600"}`} />
+                      )}
+                    </div>
+                    <p className={`mt-1.5 text-[10px] font-medium text-center ${
+                      isCompleted ? "text-emerald-600 dark:text-emerald-400" : isCurrent ? "text-blue-600 dark:text-blue-400" : "text-zinc-400"
+                    }`}>
+                      {step.label}
+                    </p>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div className={`h-0.5 flex-1 mx-2 mt-[-1rem] ${
+                      stepIdx < currentIdx ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-700"
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           {/* Order Info */}
