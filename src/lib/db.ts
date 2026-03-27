@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -7,7 +8,8 @@ const globalForPrisma = globalThis as unknown as {
 // Lazy proxy to avoid PrismaClient instantiation at module-eval time (breaks Next.js build)
 function getDb(): PrismaClient {
   if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = new PrismaClient();
+    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+    globalForPrisma.prisma = new PrismaClient({ adapter });
   }
   return globalForPrisma.prisma;
 }

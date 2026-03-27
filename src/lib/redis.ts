@@ -4,9 +4,16 @@ const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined;
 };
 
-export const redis = globalForRedis.redis ?? new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-});
+function createRedis(): Redis {
+  const url = process.env.REDIS_URL || "redis://localhost:6379";
+  return new Redis(url, {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    tls: url.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
+    lazyConnect: true,
+  });
+}
+
+export const redis = globalForRedis.redis ?? createRedis();
 
 if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;

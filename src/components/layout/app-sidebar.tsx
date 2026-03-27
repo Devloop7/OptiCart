@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import {
   LayoutDashboard, Store, Package, ShoppingCart, Eye,
-  Sparkles, Settings, ChevronLeft, ChevronRight
+  Sparkles, Settings, ChevronLeft, ChevronRight, BarChart3
 } from "lucide-react";
 import { useState } from "react";
 
@@ -15,7 +15,8 @@ const NAV_ITEMS = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/watcher", label: "Watcher", icon: Eye },
-  { href: "/ai-sourcing", label: "AI Sourcing", icon: Sparkles },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/ai/winning-products", label: "AI Sourcing", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
