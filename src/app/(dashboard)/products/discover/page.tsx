@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -12,6 +12,8 @@ import {
   ChevronRight,
   Loader2,
   Package,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,7 +87,16 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 const MARKUP = 2.5;
 
-// ─── Helper ─────────────────────────────────────────────────────────────────
+const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' fill='%23e4e4e7'%3E%3Crect width='400' height='400' fill='%23f4f4f5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui' font-size='48' fill='%23a1a1aa'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Fix image URLs that start with // (no protocol) */
+function fixImageUrl(url: string): string {
+  if (!url || typeof url !== "string") return "";
+  if (url.startsWith("//")) return `https:${url}`;
+  return url;
+}
 
 function sortProducts(products: SourcedProduct[], sort: SortOption): SourcedProduct[] {
   const arr = [...products];
@@ -122,6 +133,65 @@ function ProductSkeleton() {
   );
 }
 
+// ─── Product Image ──────────────────────────────────────────────────────────
+
+function ProductImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [error, setError] = useState(false);
+  const fixedSrc = fixImageUrl(src);
+
+  if (!fixedSrc || error) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={PLACEHOLDER_IMAGE} alt={alt} className={className} />
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={fixedSrc}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={() => setError(true)}
+    />
+  );
+}
+
+// ─── Star Rating Selector ───────────────────────────────────────────────────
+
+function StarRatingFilter({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          onClick={() => onChange(value === star ? 0 : star)}
+          className="p-0.5 hover:scale-110 transition-transform"
+          title={value === star ? "Clear rating filter" : `${star}+ stars`}
+        >
+          <Star
+            className={`h-5 w-5 transition-colors ${
+              star <= value
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-none text-zinc-300 dark:text-zinc-600 hover:text-yellow-300"
+            }`}
+          />
+        </button>
+      ))}
+      {value > 0 && (
+        <span className="text-xs text-zinc-500 ml-1">{value}+ stars</span>
+      )}
+    </div>
+  );
+}
+
 // ─── Product Card ───────────────────────────────────────────────────────────
 
 function ProductCard({
@@ -139,17 +209,24 @@ function ProductCard({
   const freeShipping = product.shippingOptions?.some((s) => s.cost === 0);
   const fastestShip = product.shippingOptions?.[0];
 
+  const isTrending = product.isTrending;
+
   return (
-    <Card className="overflow-hidden group hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect(product)}>
+    <Card
+      className={`overflow-hidden group hover:shadow-md transition-shadow cursor-pointer ${
+        isTrending
+          ? "ring-1 ring-transparent bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-orange-950/20 dark:via-zinc-900 dark:to-amber-950/20 relative before:absolute before:inset-0 before:rounded-[inherit] before:p-[1px] before:bg-gradient-to-br before:from-orange-400 before:via-amber-300 before:to-yellow-400 before:content-[''] before:-z-10 before:opacity-60"
+          : ""
+      }`}
+      onClick={() => onSelect(product)}
+    >
       {/* Image */}
       <div className="relative aspect-square bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
         {product.images?.[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <ProductImage
             src={product.images[0]}
             alt={product.title}
             className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
           />
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -265,6 +342,7 @@ function ProductCard({
 
 export default function DiscoverPage() {
   const router = useRouter();
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   const [query, setQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -274,6 +352,12 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SearchResult | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<SourcedProduct | null>(null);
+
+  // Advanced filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [minRating, setMinRating] = useState(0);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -318,8 +402,34 @@ export default function DiscoverPage() {
     router.push(`/products/import?productId=${productId}`);
   }
 
-  const products = data ? sortProducts(data.products, sort) : [];
+  function clearAllFilters() {
+    setQuery("");
+    setSearchInput("");
+    setCategory("all");
+    setMinPrice("");
+    setMaxPrice("");
+    setMinRating(0);
+    setPage(1);
+  }
+
+  const hasActiveFilters = minPrice !== "" || maxPrice !== "" || minRating > 0;
+
+  // Apply client-side filters (price range and rating) on top of server results
+  const allProducts = data ? sortProducts(data.products, sort) : [];
+  const products = allProducts.filter((p) => {
+    const price = Number(p.price);
+    if (minPrice !== "" && price < Number(minPrice)) return false;
+    if (maxPrice !== "" && price > Number(maxPrice)) return false;
+    if (minRating > 0 && Number(p.rating) < minRating) return false;
+    return true;
+  });
+
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0;
+
+  // Compute display range
+  const pageSize = data?.pageSize ?? 20;
+  const rangeStart = data && products.length > 0 ? (page - 1) * pageSize + 1 : 0;
+  const rangeEnd = data ? Math.min(page * pageSize, data.total) : 0;
 
   return (
     <div className="space-y-6">
@@ -345,15 +455,92 @@ export default function DiscoverPage() {
           />
         </div>
         <Button type="submit">Search</Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setShowFilters(!showFilters)}
+          className={showFilters || hasActiveFilters ? "border-zinc-900 dark:border-white" : ""}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
       </form>
 
-      {/* Category pills */}
-      <div className="flex flex-wrap gap-2">
+      {/* Advanced Filters Panel */}
+      {showFilters && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-end gap-6">
+              {/* Price Range */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  Price Range (Supplier Cost)
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Min"
+                      value={minPrice}
+                      onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
+                      className="w-24 pl-6"
+                    />
+                  </div>
+                  <span className="text-zinc-400">-</span>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Max"
+                      value={maxPrice}
+                      onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
+                      className="w-24 pl-6"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Min Rating */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  Minimum Rating
+                </label>
+                <StarRatingFilter value={minRating} onChange={(v) => { setMinRating(v); setPage(1); }} />
+              </div>
+
+              {/* Clear Filters */}
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setMinPrice(""); setMaxPrice(""); setMinRating(0); }}
+                  className="text-zinc-500"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Category pills — horizontally scrollable on mobile */}
+      <div
+        ref={categoryScrollRef}
+        className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+        style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         {CATEGORIES.map((cat) => (
           <button
             key={cat.id}
             onClick={() => handleCategoryChange(cat.id)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
               category === cat.id
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
                 : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
@@ -368,17 +555,24 @@ export default function DiscoverPage() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-zinc-500">
           {data ? (
-            <>
-              Showing{" "}
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                {products.length}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                {data.total}
-              </span>{" "}
-              products
-            </>
+            products.length > 0 ? (
+              <>
+                Showing{" "}
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                  {hasActiveFilters ? products.length : `${rangeStart}-${rangeEnd}`}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                  {data.total.toLocaleString()}
+                </span>{" "}
+                products
+                {hasActiveFilters && (
+                  <span className="text-zinc-400"> (filtered)</span>
+                )}
+              </>
+            ) : (
+              <span>No products match your filters</span>
+            )
           ) : (
             "Loading..."
           )}
@@ -408,27 +602,35 @@ export default function DiscoverPage() {
           ))}
         </div>
       ) : products.length === 0 ? (
-        <Card>
+        <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-20">
-            <Package className="h-12 w-12 text-zinc-300 mb-4" />
+            <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 p-4 mb-4">
+              <Package className="h-10 w-10 text-zinc-400" />
+            </div>
             <p className="text-lg font-medium text-zinc-700 dark:text-zinc-300">
               No products found
             </p>
-            <p className="text-sm text-zinc-500 mt-1">
-              Try a different search term or browse another category.
+            <p className="text-sm text-zinc-500 mt-1 text-center max-w-sm">
+              {hasActiveFilters
+                ? "No products match your current filters. Try adjusting the price range or minimum rating."
+                : "Try a different search term or browse another category."}
             </p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => {
-                setQuery("");
-                setSearchInput("");
-                setCategory("all");
-                setPage(1);
-              }}
-            >
-              Clear filters
-            </Button>
+            <div className="flex gap-2 mt-4">
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  onClick={() => { setMinPrice(""); setMaxPrice(""); setMinRating(0); }}
+                >
+                  Clear price/rating filters
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={clearAllFilters}
+              >
+                Reset all filters
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -446,7 +648,7 @@ export default function DiscoverPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-4">
+        <div className="flex items-center justify-center gap-1 pt-4">
           <Button
             variant="outline"
             size="sm"
@@ -454,18 +656,47 @@ export default function DiscoverPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            Previous
+            <span className="hidden sm:inline ml-1">Previous</span>
           </Button>
-          <span className="text-sm text-zinc-500 px-3">
-            Page {page} of {totalPages}
-          </span>
+
+          {/* Page number buttons */}
+          {(() => {
+            const pages: (number | "...")[] = [];
+            if (totalPages <= 7) {
+              for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+              pages.push(1);
+              if (page > 3) pages.push("...");
+              for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+                pages.push(i);
+              }
+              if (page < totalPages - 2) pages.push("...");
+              pages.push(totalPages);
+            }
+            return pages.map((p, idx) =>
+              p === "..." ? (
+                <span key={`dots-${idx}`} className="px-2 text-zinc-400 text-sm">...</span>
+              ) : (
+                <Button
+                  key={p}
+                  variant={p === page ? "default" : "outline"}
+                  size="sm"
+                  className="min-w-[36px]"
+                  onClick={() => setPage(p)}
+                >
+                  {p}
+                </Button>
+              )
+            );
+          })()}
+
           <Button
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next
+            <span className="hidden sm:inline mr-1">Next</span>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -485,8 +716,12 @@ export default function DiscoverPage() {
               {/* Images */}
               <div className="grid grid-cols-4 gap-2">
                 {(selectedProduct.images || []).slice(0, 4).map((img, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={img} alt="" className="rounded-lg aspect-square object-cover w-full" />
+                  <ProductImage
+                    key={i}
+                    src={img}
+                    alt={selectedProduct.title}
+                    className="rounded-lg aspect-square object-cover w-full"
+                  />
                 ))}
               </div>
 

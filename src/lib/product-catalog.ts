@@ -276,6 +276,27 @@ type SupplierProductWithVariants = {
   }>;
 };
 
+/** Fix image URLs that start with // (no protocol) */
+function fixImageUrl(url: string): string {
+  if (typeof url !== "string") return "";
+  if (url.startsWith("//")) return `https:${url}`;
+  return url;
+}
+
+/** Parse a JSON field that might be a string, array, or null */
+function parseJsonArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed as T[];
+    } catch {
+      // not valid JSON
+    }
+  }
+  return [];
+}
+
 function dbRecordToSourced(
   record: SupplierProductWithVariants,
 ): SourcedProduct {
@@ -289,27 +310,36 @@ function dbRecordToSourced(
     return parseFloat(String(v)) || 0;
   };
 
+  // Parse images — could be JSON string or array, then fix // prefixes
+  const rawImages = parseJsonArray<string>(record.images);
+  const images = rawImages.map(fixImageUrl).filter(Boolean);
+
+  // Parse shipping options — could be JSON string or array
+  const shippingOptions = parseJsonArray<SourcedProduct["shippingOptions"][number]>(
+    record.shippingOptions,
+  );
+
   return {
     externalId: record.externalId,
     sourceUrl: record.sourceUrl,
     title: record.title,
     description: record.description ?? "",
-    images: (record.images as string[]) ?? [],
+    images,
     price: toNum(raw.price ?? 0),
     originalPrice: raw.originalPrice ? toNum(raw.originalPrice) : undefined,
     currency: (raw.currency as string) ?? "USD",
     rating: toNum(record.rating),
-    totalOrders: record.totalOrders ?? 0,
+    totalOrders: Number(record.totalOrders) || 0,
     category: (raw.category as string) ?? "general",
-    shippingOptions: (record.shippingOptions as SourcedProduct["shippingOptions"]) ?? [],
+    shippingOptions,
     variants: record.variants.map((v) => ({
       id: v.externalId,
       name: v.name,
       price: toNum(v.price),
       stock: v.stock,
-      image: v.image ?? undefined,
+      image: v.image ? fixImageUrl(v.image) : undefined,
     })),
-    isTrending: raw.isTrending === true,
+    isTrending: raw.isTrending === true || raw.trending === true,
     isNewArrival: raw.isNewArrival === true,
   };
 }

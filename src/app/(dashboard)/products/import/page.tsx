@@ -2,11 +2,31 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Package, Check, X, DollarSign, Star, Truck } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Package,
+  Check,
+  X,
+  DollarSign,
+  Star,
+  Truck,
+  ExternalLink,
+  ShoppingBag,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface ShippingOption {
   carrier: string;
@@ -27,13 +47,15 @@ interface FetchedProduct {
   title: string;
   description: string;
   images: string[];
+  price: number;
   rating: number;
   totalOrders: number;
   sourceUrl: string;
   shippingOptions: ShippingOption[];
   variants: FetchedVariant[];
-  suggestedRetailPrice?: number;
-  pricingMultiplier?: number;
+  suggestedRetailPrice: number;
+  retailPrice: number;
+  pricingMultiplier: number;
 }
 
 interface StoreOption {
@@ -43,50 +65,53 @@ interface StoreOption {
 }
 
 interface ImportResult {
+  productId?: string;
   externalId: string;
   success: boolean;
   message: string;
 }
 
-// Mock data matching seed products
-const MOCK_PRODUCTS: FetchedProduct[] = [
-  {
-    externalId: "1005006123456789",
-    title: "Wireless Bluetooth Earbuds TWS 5.3 Noise Cancelling",
-    description: "High quality wireless earbuds with active noise cancellation and 30h battery life.",
-    images: ["https://ae-pic-a1.aliexpress-media.com/kf/S1234.jpg"],
-    rating: 4.7,
-    totalOrders: 15420,
-    sourceUrl: "https://www.aliexpress.com/item/1005006123456789.html",
-    shippingOptions: [
-      { carrier: "AliExpress Standard", cost: 0, days: "15-25" },
-      { carrier: "ePacket", cost: 2.5, days: "10-18" },
-    ],
-    variants: [
-      { externalId: "v1", name: "Black", price: 8.99, stock: 5000, sku: "TWS-BLK" },
-      { externalId: "v2", name: "White", price: 8.99, stock: 3200, sku: "TWS-WHT" },
-      { externalId: "v3", name: "Blue", price: 9.49, stock: 1800, sku: "TWS-BLU" },
-    ],
-    pricingMultiplier: 2.5,
-  },
-  {
-    externalId: "1005007987654321",
-    title: "LED Ring Light 10\" with Tripod Stand for TikTok Live Stream",
-    description: "Professional ring light with adjustable brightness and color temperature.",
-    images: ["https://ae-pic-a1.aliexpress-media.com/kf/S5678.jpg"],
-    rating: 4.5,
-    totalOrders: 8700,
-    sourceUrl: "https://www.aliexpress.com/item/1005007987654321.html",
-    shippingOptions: [
-      { carrier: "AliExpress Standard", cost: 0, days: "20-30" },
-    ],
-    variants: [
-      { externalId: "v1", name: "10 inch", price: 12.5, stock: 2400, sku: "RING-10" },
-      { externalId: "v2", name: "12 inch + Phone Holder", price: 16.8, stock: 1100, sku: "RING-12P" },
-    ],
-    pricingMultiplier: 2.5,
-  },
-];
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const PLACEHOLDER_IMAGE =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' fill='%23e4e4e7'%3E%3Crect width='400' height='400' fill='%23f4f4f5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui' font-size='48' fill='%23a1a1aa'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+function fixImageUrl(url: string): string {
+  if (!url || typeof url !== "string") return "";
+  if (url.startsWith("//")) return `https:${url}`;
+  return url;
+}
+
+function ProductImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [error, setError] = useState(false);
+  const fixedSrc = fixImageUrl(src);
+
+  if (!fixedSrc || error) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={PLACEHOLDER_IMAGE} alt={alt} className={className} />;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={fixedSrc}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={() => setError(true)}
+    />
+  );
+}
+
+// ─── Steps ──────────────────────────────────────────────────────────────────
 
 type Step = "input" | "fetching" | "review" | "importing" | "done";
 
@@ -100,7 +125,9 @@ export default function ImportPage() {
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [selectedStore, setSelectedStore] = useState("");
   const [results, setResults] = useState<ImportResult[]>([]);
+  const [fetchError, setFetchError] = useState("");
 
+  // Load stores
   useEffect(() => {
     fetch("/api/stores")
       .then((r) => r.json())
@@ -117,58 +144,132 @@ export default function ImportPage() {
   useEffect(() => {
     if (!preloadProductId) return;
     setStep("fetching");
+    setFetchError("");
+
     fetch(`/api/sourcing/product/${encodeURIComponent(preloadProductId)}`)
       .then((r) => r.json())
       .then((json) => {
         if (json.ok && json.data) {
           const p = json.data;
+          const price = Number(p.price) || 0;
+          const suggestedRetail = price * 2.5;
           const fetched: FetchedProduct = {
             externalId: p.externalId,
             title: p.title,
             description: p.description ?? "",
-            images: p.images ?? [],
-            rating: p.rating ?? 0,
-            totalOrders: p.totalOrders ?? 0,
+            images: (p.images ?? []).map((img: string) => fixImageUrl(img)),
+            price,
+            rating: Number(p.rating) || 0,
+            totalOrders: Number(p.totalOrders) || 0,
             sourceUrl: p.sourceUrl ?? "",
             shippingOptions: p.shippingOptions ?? [],
-            variants: (p.variants ?? []).map((v: { id: string; name: string; price: number; stock: number }) => ({
-              externalId: v.id,
-              name: v.name,
-              price: v.price,
-              stock: v.stock,
-              sku: v.id,
-            })),
+            variants: (p.variants ?? []).map(
+              (v: {
+                id: string;
+                name: string;
+                price: number;
+                stock: number;
+              }) => ({
+                externalId: v.id,
+                name: v.name,
+                price: Number(v.price) || 0,
+                stock: v.stock,
+                sku: v.id,
+              })
+            ),
             pricingMultiplier: 2.5,
-            suggestedRetailPrice: p.price * 2.5,
+            suggestedRetailPrice: suggestedRetail,
+            retailPrice: suggestedRetail,
           };
           setProducts([fetched]);
           setStep("review");
         } else {
+          setFetchError(
+            json.error ?? "Product not found. It may not be in the catalog yet."
+          );
           setStep("input");
         }
       })
       .catch(() => {
+        setFetchError("Failed to fetch product details. Please try again.");
         setStep("input");
       });
   }, [preloadProductId]);
 
+  function handleRetailPriceChange(externalId: string, value: string) {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0) return;
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.externalId === externalId ? { ...p, retailPrice: num } : p
+      )
+    );
+  }
+
   async function handleFetch() {
-    const lines = urls.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = urls
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
     if (lines.length === 0) return;
 
     setStep("fetching");
+    setFetchError("");
 
-    // Simulate network delay, then return mock data
-    await new Promise((r) => setTimeout(r, 1500));
+    // Try to extract product ID from the first URL and fetch from API
+    const firstUrl = lines[0];
+    const idMatch = firstUrl.match(/\/item\/(\d+)/);
+    if (idMatch) {
+      try {
+        const res = await fetch(
+          `/api/sourcing/product/${encodeURIComponent(idMatch[1])}`
+        );
+        const json = await res.json();
+        if (json.ok && json.data) {
+          const p = json.data;
+          const price = Number(p.price) || 0;
+          const suggestedRetail = price * 2.5;
+          const fetched: FetchedProduct = {
+            externalId: p.externalId,
+            title: p.title,
+            description: p.description ?? "",
+            images: (p.images ?? []).map((img: string) => fixImageUrl(img)),
+            price,
+            rating: Number(p.rating) || 0,
+            totalOrders: Number(p.totalOrders) || 0,
+            sourceUrl: p.sourceUrl ?? firstUrl,
+            shippingOptions: p.shippingOptions ?? [],
+            variants: (p.variants ?? []).map(
+              (v: {
+                id: string;
+                name: string;
+                price: number;
+                stock: number;
+              }) => ({
+                externalId: v.id,
+                name: v.name,
+                price: Number(v.price) || 0,
+                stock: v.stock,
+                sku: v.id,
+              })
+            ),
+            pricingMultiplier: 2.5,
+            suggestedRetailPrice: suggestedRetail,
+            retailPrice: suggestedRetail,
+          };
+          setProducts([fetched]);
+          setStep("review");
+          return;
+        }
+      } catch {
+        // Fall through to error
+      }
+    }
 
-    // Add suggested retail prices
-    const fetched = MOCK_PRODUCTS.map((p) => ({
-      ...p,
-      suggestedRetailPrice: Math.min(...p.variants.map((v) => v.price)) * (p.pricingMultiplier ?? 2.5),
-    }));
-
-    setProducts(fetched);
-    setStep("review");
+    setFetchError(
+      "Could not fetch product details from the provided URL. Make sure the product exists in the supplier catalog."
+    );
+    setStep("input");
   }
 
   async function handleImport() {
@@ -179,28 +280,43 @@ export default function ImportPage() {
 
     setStep("importing");
 
-    try {
-      const res = await fetch("/api/products/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          storeId: selectedStore,
-          products: products.map((p) => ({
+    const importResults: ImportResult[] = [];
+
+    for (const p of products) {
+      try {
+        const res = await fetch("/api/products/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             sourceUrl: p.sourceUrl,
+            storeId: selectedStore,
+          }),
+        });
+        const json = await res.json();
+        if (json.ok && json.data) {
+          importResults.push({
             externalId: p.externalId,
-          })),
-        }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setResults(json.data?.results ?? products.map((p) => ({ externalId: p.externalId, success: true, message: "Imported successfully" })));
-      } else {
-        setResults(products.map((p) => ({ externalId: p.externalId, success: true, message: "Imported (demo mode)" })));
+            productId: json.data.id,
+            success: true,
+            message: "Imported successfully",
+          });
+        } else {
+          importResults.push({
+            externalId: p.externalId,
+            success: false,
+            message: json.error ?? "Import failed",
+          });
+        }
+      } catch {
+        importResults.push({
+          externalId: p.externalId,
+          success: false,
+          message: "Network error during import",
+        });
       }
-    } catch {
-      // Demo mode fallback
-      setResults(products.map((p) => ({ externalId: p.externalId, success: true, message: "Imported (demo mode)" })));
     }
+
+    setResults(importResults);
     setStep("done");
   }
 
@@ -209,37 +325,53 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/products")}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push("/products")}
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-bold">Import from AliExpress</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Import Product</h1>
+          <p className="text-sm text-zinc-500">
+            Import products from AliExpress into your store
+          </p>
+        </div>
       </div>
 
       {/* Step 1: Input URLs */}
       {step === "input" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Step 1: Paste AliExpress URLs</CardTitle>
+            <CardTitle className="text-base">
+              {preloadProductId
+                ? "Product could not be loaded"
+                : "Paste AliExpress URL"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {fetchError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-400">
+                {fetchError}
+              </div>
+            )}
             <p className="text-sm text-zinc-500">
-              Paste one AliExpress product URL per line. We will fetch product details, pricing, and variants.
+              Paste an AliExpress product URL below. We will fetch product
+              details, pricing, and variants automatically.
             </p>
             <textarea
               value={urls}
               onChange={(e) => setUrls(e.target.value)}
-              rows={5}
-              placeholder={"https://www.aliexpress.com/item/1005006123456789.html\nhttps://www.aliexpress.com/item/1005007987654321.html"}
-              className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
+              rows={3}
+              placeholder="https://www.aliexpress.com/item/1005006123456789.html"
+              className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
             />
-            <div className="flex items-center gap-3">
-              <Button onClick={handleFetch} disabled={!urls.trim()}>
-                Fetch Products
-              </Button>
-              <p className="text-xs text-zinc-400">Demo mode: any URL will return sample products</p>
-            </div>
+            <Button onClick={handleFetch} disabled={!urls.trim()}>
+              Fetch Product
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -249,77 +381,182 @@ export default function ImportPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Loader2 className="h-10 w-10 animate-spin text-zinc-400 mb-4" />
-            <p className="text-sm text-zinc-500">Fetching product details from AliExpress...</p>
+            <p className="text-sm text-zinc-500">
+              Fetching product details...
+            </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 2+3: Review Products */}
+      {/* Step 2: Review Product */}
       {step === "review" && (
         <>
-          <div className="text-sm text-zinc-500">
-            Found {products.length} product(s). Review details and pricing below.
-          </div>
-
           {products.map((product) => {
-            const minCost = Math.min(...product.variants.map((v) => v.price));
-            const maxCost = Math.max(...product.variants.map((v) => v.price));
-            const multiplier = product.pricingMultiplier ?? 2.5;
+            const profit = product.retailPrice - product.price;
+            const marginPct =
+              product.retailPrice > 0
+                ? Math.round((profit / product.retailPrice) * 100)
+                : 0;
 
             return (
               <Card key={product.externalId}>
-                <CardContent className="p-5">
+                <CardContent className="p-5 space-y-5">
+                  {/* Product Preview */}
                   <div className="flex gap-5">
-                    {/* Image placeholder */}
-                    <div className="h-28 w-28 shrink-0 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                      <Package className="h-10 w-10 text-zinc-400" />
+                    {/* Image */}
+                    <div className="h-32 w-32 shrink-0 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                      {product.images?.[0] ? (
+                        <ProductImage
+                          src={product.images[0]}
+                          alt={product.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <Package className="h-10 w-10 text-zinc-400" />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex-1 min-w-0 space-y-3">
-                      <h3 className="font-semibold text-lg">{product.title}</h3>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <h3 className="font-semibold text-lg leading-snug line-clamp-2">
+                        {product.title}
+                      </h3>
 
                       <div className="flex flex-wrap items-center gap-3 text-sm">
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span>{product.rating}</span>
+                          <span>{Number(product.rating).toFixed(1)}</span>
                         </div>
                         <span className="text-zinc-400">|</span>
-                        <span className="text-zinc-500">{product.totalOrders.toLocaleString()} orders</span>
-                        <span className="text-zinc-400">|</span>
-                        <span className="text-zinc-500">{product.variants.length} variant(s)</span>
+                        <span className="text-zinc-500">
+                          {Number(product.totalOrders).toLocaleString()} orders
+                        </span>
+                        {product.variants.length > 0 && (
+                          <>
+                            <span className="text-zinc-400">|</span>
+                            <span className="text-zinc-500">
+                              {product.variants.length} variant(s)
+                            </span>
+                          </>
+                        )}
                       </div>
 
-                      {/* Variants */}
+                      {/* Source link */}
+                      {product.sourceUrl && (
+                        <a
+                          href={product.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          View on AliExpress
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Variants */}
+                  {product.variants.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
+                        Variants
+                      </h4>
                       <div className="flex flex-wrap gap-2">
                         {product.variants.map((v) => (
                           <Badge key={v.externalId} variant="secondary">
-                            {v.name}: ${v.price.toFixed(2)}
+                            {v.name}: ${Number(v.price).toFixed(2)}
+                            {v.stock > 0 && (
+                              <span className="text-zinc-400 ml-1">
+                                ({v.stock})
+                              </span>
+                            )}
                           </Badge>
                         ))}
                       </div>
+                    </div>
+                  )}
 
-                      {/* Shipping */}
-                      <div className="flex flex-wrap gap-3 text-sm">
-                        {product.shippingOptions.map((so, i) => (
-                          <div key={i} className="flex items-center gap-1 text-zinc-500">
-                            <Truck className="h-3.5 w-3.5" />
-                            {so.carrier}: {so.cost === 0 ? "Free" : `$${so.cost.toFixed(2)}`} ({so.days}d)
-                          </div>
-                        ))}
+                  {/* Shipping */}
+                  {product.shippingOptions.length > 0 && (
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      {product.shippingOptions.map((so, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-1 text-zinc-500"
+                        >
+                          <Truck className="h-3.5 w-3.5" />
+                          {so.carrier}:{" "}
+                          {so.cost === 0
+                            ? "Free"
+                            : `$${Number(so.cost).toFixed(2)}`}{" "}
+                          ({so.days}d)
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Pricing Section */}
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30 p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                      <DollarSign className="h-4 w-4" />
+                      Pricing
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* Supplier Cost */}
+                      <div>
+                        <div className="text-xs text-zinc-500 mb-1">
+                          Supplier Cost
+                        </div>
+                        <div className="text-lg font-bold">
+                          ${Number(product.price).toFixed(2)}
+                        </div>
                       </div>
 
-                      {/* Pricing Preview */}
-                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
-                        <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-1">
-                          <DollarSign className="h-4 w-4" />
-                          Pricing Preview ({multiplier}x markup)
+                      {/* Retail Price (editable) */}
+                      <div>
+                        <div className="text-xs text-zinc-500 mb-1">
+                          Your Retail Price
                         </div>
-                        <div className="text-sm text-emerald-600 dark:text-emerald-300">
-                          Supplier: ${minCost.toFixed(2)}{minCost !== maxCost ? ` - $${maxCost.toFixed(2)}` : ""}
-                          {" -> "}
-                          Retail: ${(minCost * multiplier).toFixed(2)}{minCost !== maxCost ? ` - $${(maxCost * multiplier).toFixed(2)}` : ""}
-                          {" -> "}
-                          Profit: ${((minCost * multiplier) - minCost).toFixed(2)}{minCost !== maxCost ? ` - $${((maxCost * multiplier) - maxCost).toFixed(2)}` : ""} per unit
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-600 font-medium">
+                            $
+                          </span>
+                          <Input
+                            type="number"
+                            min={product.price}
+                            step="0.01"
+                            value={product.retailPrice.toFixed(2)}
+                            onChange={(e) =>
+                              handleRetailPriceChange(
+                                product.externalId,
+                                e.target.value
+                              )
+                            }
+                            className="pl-6 font-bold text-lg h-auto py-0.5 border-emerald-300 dark:border-emerald-700"
+                          />
+                        </div>
+                        <div className="text-[10px] text-zinc-400 mt-0.5">
+                          Suggested: $
+                          {Number(product.suggestedRetailPrice).toFixed(2)} (
+                          {product.pricingMultiplier}x)
+                        </div>
+                      </div>
+
+                      {/* Profit */}
+                      <div>
+                        <div className="text-xs text-zinc-500 mb-1">
+                          Profit Per Sale
+                        </div>
+                        <div
+                          className={`text-lg font-bold ${profit > 0 ? "text-emerald-600" : "text-red-500"}`}
+                        >
+                          ${profit.toFixed(2)}
+                        </div>
+                        <div className="text-[10px] text-zinc-400 mt-0.5">
+                          {marginPct}% margin
                         </div>
                       </div>
                     </div>
@@ -329,31 +566,57 @@ export default function ImportPage() {
             );
           })}
 
-          {/* Step 4+5: Store Selection & Import */}
+          {/* Store Selection & Import */}
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ShoppingBag className="h-4 w-4" />
+                Select Store
+              </div>
+
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium">Import to store:</label>
-                  <Select value={selectedStore} onValueChange={setSelectedStore}>
-                    <SelectTrigger className="w-[250px]">
-                      <SelectValue placeholder="Select a store" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stores.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name} ({s.platform})
-                        </SelectItem>
-                      ))}
-                      {stores.length === 0 && (
-                        <SelectItem value="_none" disabled>No stores configured</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1" />
-                <Button onClick={handleImport} disabled={!selectedStore}>
-                  Import {products.length} Product(s)
+                <Select value={selectedStore} onValueChange={setSelectedStore}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Select a store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stores.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} ({s.platform})
+                      </SelectItem>
+                    ))}
+                    {stores.length === 0 && (
+                      <SelectItem value="_none" disabled>
+                        No stores configured
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+
+                {stores.length === 0 && (
+                  <Button
+                    variant="link"
+                    className="text-sm"
+                    onClick={() => router.push("/stores")}
+                  >
+                    Create a store first
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={handleImport}
+                  disabled={!selectedStore}
+                  className="flex-1 sm:flex-none"
+                >
+                  Confirm Import
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/products/discover")}
+                >
+                  Back to Discover
                 </Button>
               </div>
             </CardContent>
@@ -366,7 +629,9 @@ export default function ImportPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Loader2 className="h-10 w-10 animate-spin text-zinc-400 mb-4" />
-            <p className="text-sm text-zinc-500">Importing products...</p>
+            <p className="text-sm text-zinc-500">
+              Importing product to your store...
+            </p>
           </CardContent>
         </Card>
       )}
@@ -376,30 +641,69 @@ export default function ImportPage() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Import Complete</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Check className="h-5 w-5 text-emerald-600" />
+                Import Complete
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {products.map((product) => {
                 const result = getResultForProduct(product.externalId);
-                const success = result?.success ?? true;
+                const success = result?.success ?? false;
                 return (
-                  <div key={product.externalId} className="flex items-center gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+                  <div
+                    key={product.externalId}
+                    className={`flex items-center gap-3 rounded-lg border p-3 ${
+                      success
+                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                        : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+                    }`}
+                  >
+                    {/* Thumbnail */}
+                    <div className="h-12 w-12 rounded-lg overflow-hidden shrink-0 bg-zinc-100 dark:bg-zinc-800">
+                      {product.images?.[0] ? (
+                        <ProductImage
+                          src={product.images[0]}
+                          alt={product.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <Package className="h-5 w-5 text-zinc-400" />
+                        </div>
+                      )}
+                    </div>
+
                     {success ? (
-                      <div className="rounded-full bg-emerald-100 p-1 dark:bg-emerald-900">
+                      <div className="rounded-full bg-emerald-100 p-1 dark:bg-emerald-900 shrink-0">
                         <Check className="h-4 w-4 text-emerald-600" />
                       </div>
                     ) : (
-                      <div className="rounded-full bg-red-100 p-1 dark:bg-red-900">
+                      <div className="rounded-full bg-red-100 p-1 dark:bg-red-900 shrink-0">
                         <X className="h-4 w-4 text-red-600" />
                       </div>
                     )}
+
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{product.title}</p>
-                      <p className="text-xs text-zinc-500">{result?.message}</p>
+                      <p className="text-sm font-medium truncate">
+                        {product.title}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {result?.message}
+                      </p>
                     </div>
-                    <Badge variant={success ? "success" : "destructive"}>
-                      {success ? "Imported" : "Failed"}
-                    </Badge>
+
+                    {success && result?.productId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          router.push(`/products/${result.productId}`)
+                        }
+                      >
+                        View
+                      </Button>
+                    )}
                   </div>
                 );
               })}
@@ -407,9 +711,26 @@ export default function ImportPage() {
           </Card>
 
           <div className="flex gap-3">
-            <Button onClick={() => router.push("/products")}>View Products</Button>
-            <Button variant="outline" onClick={() => { setStep("input"); setUrls(""); setProducts([]); setResults([]); }}>
-              Import More
+            <Button onClick={() => router.push("/products")}>
+              View All Products
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/products/discover")}
+            >
+              Discover More
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setStep("input");
+                setUrls("");
+                setProducts([]);
+                setResults([]);
+                setFetchError("");
+              }}
+            >
+              Import Another
             </Button>
           </div>
         </>
