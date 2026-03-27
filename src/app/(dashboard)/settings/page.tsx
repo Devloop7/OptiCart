@@ -6,7 +6,81 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Building2, Store, Shield } from "lucide-react";
+import { User, Building2, Store, Shield, AlertTriangle, Key, Eye, EyeOff } from "lucide-react";
+
+function PasswordChangeForm({ onMessage }: { onMessage: (type: "success" | "error", text: string) => void }) {
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit() {
+    if (newPw.length < 8) {
+      onMessage("error", "Password must be at least 8 characters");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      onMessage("error", "Passwords don't match");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        onMessage("success", "Password changed successfully.");
+        setCurrentPw("");
+        setNewPw("");
+        setConfirmPw("");
+      } else {
+        onMessage("error", json.error || "Failed to change password");
+      }
+    } catch {
+      onMessage("error", "Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Current Password</label>
+        <div className="relative mt-1">
+          <Key className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+          <Input
+            type={showPw ? "text" : "password"}
+            value={currentPw}
+            onChange={(e) => setCurrentPw(e.target.value)}
+            className="pl-9 pr-9"
+            placeholder="Enter current password"
+          />
+          <button onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2">
+            {showPw ? <EyeOff className="h-3.5 w-3.5 text-zinc-400" /> : <Eye className="h-3.5 w-3.5 text-zinc-400" />}
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">New Password</label>
+          <Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} className="mt-1" placeholder="Min 8 characters" />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Confirm</label>
+          <Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} className="mt-1" placeholder="Confirm password" />
+        </div>
+      </div>
+      <Button onClick={handleSubmit} disabled={saving || !currentPw || !newPw} size="sm">
+        {saving ? "Changing..." : "Change Password"}
+      </Button>
+    </div>
+  );
+}
 
 interface Profile {
   id: string;
@@ -30,7 +104,7 @@ interface StoreInfo {
   isActive: boolean;
 }
 
-type Tab = "profile" | "workspace" | "stores";
+type Tab = "profile" | "workspace" | "stores" | "danger";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("profile");
@@ -125,6 +199,7 @@ export default function SettingsPage() {
     { id: "profile", label: "Profile", icon: User },
     { id: "workspace", label: "Workspace", icon: Building2 },
     { id: "stores", label: "Stores", icon: Store },
+    { id: "danger", label: "Danger Zone", icon: AlertTriangle },
   ];
 
   if (loading) {
@@ -194,9 +269,9 @@ export default function SettingsPage() {
             <hr className="my-4 border-zinc-200 dark:border-zinc-700" />
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-zinc-500" />
-              <span className="text-sm font-medium">Security</span>
+              <span className="text-sm font-medium">Change Password</span>
             </div>
-            <Button variant="outline" size="sm">Change Password</Button>
+            <PasswordChangeForm onMessage={showMessage} />
           </CardContent>
         </Card>
       )}
@@ -280,10 +355,46 @@ export default function SettingsPage() {
                 </div>
               ))
             )}
-            <Button variant="outline" size="sm" className="mt-2">
+            <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/stores"}>
               <Store className="mr-2 h-4 w-4" />
-              Add Store
+              Manage Stores
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Danger Zone */}
+      {tab === "danger" && (
+        <Card className="border-red-200 dark:border-red-900">
+          <CardHeader>
+            <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Danger Zone
+            </CardTitle>
+            <CardDescription>Irreversible actions. Please be careful.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-red-200 p-4 dark:border-red-900">
+              <div>
+                <p className="text-sm font-medium">Delete All Products</p>
+                <p className="text-xs text-zinc-500">Remove all products from your catalog. This cannot be undone.</p>
+              </div>
+              <Button variant="destructive" size="sm">Delete Products</Button>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-red-200 p-4 dark:border-red-900">
+              <div>
+                <p className="text-sm font-medium">Disconnect All Stores</p>
+                <p className="text-xs text-zinc-500">Remove all store connections and their data.</p>
+              </div>
+              <Button variant="destructive" size="sm">Disconnect All</Button>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-red-200 p-4 dark:border-red-900">
+              <div>
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">Delete Account</p>
+                <p className="text-xs text-zinc-500">Permanently delete your account and all associated data.</p>
+              </div>
+              <Button variant="destructive" size="sm">Delete Account</Button>
+            </div>
           </CardContent>
         </Card>
       )}

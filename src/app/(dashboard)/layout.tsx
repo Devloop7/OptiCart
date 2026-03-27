@@ -23,6 +23,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/analytics": "Analytics",
   "/help": "Help Center",
   "/products/compare": "Compare Products",
+  "/tools/profit-calculator": "Profit Calculator",
+  "/products/import/csv": "CSV Import",
 };
 
 function Topbar() {

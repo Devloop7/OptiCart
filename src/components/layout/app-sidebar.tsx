@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import {
   LayoutDashboard, Package, ShoppingCart, Zap,
   Sparkles, Settings, ChevronLeft, ChevronRight, CreditCard, LogOut, Globe,
-  Store, Plug, BarChart3, HelpCircle, ArrowUpDown
+  Store, Plug, BarChart3, HelpCircle, ArrowUpDown, Calculator, Upload
 } from "lucide-react";
 import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
@@ -24,6 +24,8 @@ const NAV_TOOLS = [
   { href: "/ai/winning-products", label: "AI Research", icon: Sparkles },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/products/compare", label: "Compare", icon: ArrowUpDown },
+  { href: "/tools/profit-calculator", label: "Profit Calc", icon: Calculator },
+  { href: "/products/import/csv", label: "CSV Import", icon: Upload },
   { href: "/integrations", label: "Integrations", icon: Plug },
 ];
 
