@@ -7,7 +7,7 @@ export async function GET() {
     // Try cached categories first
     const cachedCount = await catalogService.getCachedCount();
 
-    if (cachedCount > 0) {
+    if (cachedCount >= 50) {
       const categories = await catalogService.getCachedCategories();
       if (categories.length > 0) {
         return NextResponse.json({

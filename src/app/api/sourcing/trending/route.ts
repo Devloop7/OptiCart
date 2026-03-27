@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (cachedCount > 0) {
+    if (cachedCount >= 50) {
       const result = await catalogService.getCachedProducts({
         category,
         page,

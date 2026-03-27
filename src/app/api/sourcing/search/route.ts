@@ -11,9 +11,9 @@ export async function GET(req: NextRequest) {
     const sort = searchParams.get("sort") ?? "best_selling";
     const limit = Math.min(Math.max(1, Number(searchParams.get("limit") ?? "12")), 50);
 
-    // Try cached products first
+    // Try cached products first (need at least 50 to be useful)
     const cachedCount = await catalogService.getCachedCount();
-    if (cachedCount > 0) {
+    if (cachedCount >= 50) {
       const result = await catalogService.getCachedProducts({
         search: q || undefined,
         category,
