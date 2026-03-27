@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import {
   LayoutDashboard, Store, Package, ShoppingCart, Eye,
-  Sparkles, Settings, ChevronLeft, ChevronRight, BarChart3
+  Sparkles, Settings, ChevronLeft, ChevronRight, BarChart3, LogOut
 } from "lucide-react";
 import { useState } from "react";
+import { signOut, useSession } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
 export function AppSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { data: session } = useSession();
 
   return (
     <aside className={cn(
@@ -68,11 +70,23 @@ export function AppSidebar() {
       </nav>
 
       {/* Footer */}
-      {!collapsed && (
-        <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-400">Opticart v0.1.0</p>
-        </div>
-      )}
+      <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
+        {!collapsed && session?.user && (
+          <div className="mb-2 px-1">
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">{session.user.name || session.user.email}</p>
+            <p className="text-xs text-zinc-400 truncate">{session.user.email}</p>
+          </div>
+        )}
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-white"
+          title={collapsed ? "Sign out" : undefined}
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>Sign out</span>}
+        </button>
+        {!collapsed && <p className="mt-2 px-1 text-xs text-zinc-400">Opticart v0.1.0</p>}
+      </div>
     </aside>
   );
 }
