@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   Search,
   Import,
@@ -14,6 +15,8 @@ import {
   Zap,
   ShieldCheck,
   ChevronRight,
+  Menu,
+  X,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -179,6 +182,8 @@ const footerLinks = {
 /* ------------------------------------------------------------------ */
 
 export default function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       {/* ── Navbar ────────────────────────────────────────────────── */}
@@ -210,7 +215,24 @@ export default function LandingPage() {
               Start Free
             </Link>
           </div>
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden rounded-lg p-2 text-gray-300 hover:text-white"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-800 bg-gray-950 px-6 py-4 space-y-3">
+            <a href="#features" className="block text-sm text-gray-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>Features</a>
+            <a href="#how-it-works" className="block text-sm text-gray-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>How It Works</a>
+            <a href="#pricing" className="block text-sm text-gray-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+            <Link href="/login" className="block text-sm text-gray-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
+            <Link href="/register" className="block rounded-lg bg-indigo-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-indigo-500" onClick={() => setMobileMenuOpen(false)}>Start Free</Link>
+          </div>
+        )}
       </nav>
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
@@ -259,8 +281,56 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Stats Counter ────────────────────────────────────────── */}
+      <section className="border-y border-gray-200 bg-white py-12">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+            {[
+              { value: "12,000+", label: "Active Sellers" },
+              { value: "2.5M+", label: "Products Imported" },
+              { value: "$47M+", label: "Revenue Generated" },
+              { value: "99.9%", label: "Uptime" },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-3xl font-extrabold text-gray-900 md:text-4xl">{stat.value}</p>
+                <p className="mt-1 text-sm text-gray-500">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Integrations Logos ───────────────────────────────────── */}
+      <section className="bg-gray-50 py-16">
+        <div className="mx-auto max-w-7xl px-6 text-center">
+          <p className="text-sm font-semibold uppercase tracking-widest text-gray-400">
+            Integrates with your favorite platforms
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-8 md:gap-12">
+            {[
+              { name: "Shopify", icon: "🛍️" },
+              { name: "AliExpress", icon: "🛒" },
+              { name: "AutoDS", icon: "🤖" },
+              { name: "CJ Dropshipping", icon: "📦" },
+              { name: "Spocket", icon: "🚀" },
+              { name: "DSers", icon: "⚡" },
+              { name: "Zendrop", icon: "💎" },
+              { name: "WooCommerce", icon: "🔮" },
+            ].map((platform) => (
+              <div
+                key={platform.name}
+                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
+              >
+                <span className="text-xl">{platform.icon}</span>
+                <span className="text-sm font-semibold text-gray-700">{platform.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Features ──────────────────────────────────────────────── */}
-      <section id="features" className="py-24 md:py-32 bg-gray-50">
+      <section id="features" className="py-24 md:py-32 bg-white">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-semibold uppercase tracking-widest text-indigo-600">

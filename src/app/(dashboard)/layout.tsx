@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { NotificationDropdown } from "@/components/layout/notification-dropdown";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/billing": "Billing",
   "/settings": "Settings",
   "/onboarding": "Welcome",
+  "/analytics": "Analytics",
+  "/help": "Help Center",
+  "/products/compare": "Compare Products",
 };
 
 function Topbar() {
@@ -44,6 +48,7 @@ function Topbar() {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         <NotificationDropdown />
         <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700" />
         <div className="flex items-center gap-2">

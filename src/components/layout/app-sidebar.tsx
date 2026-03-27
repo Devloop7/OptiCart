@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import {
   LayoutDashboard, Package, ShoppingCart, Zap,
   Sparkles, Settings, ChevronLeft, ChevronRight, CreditCard, LogOut, Globe,
-  Store, Plug
+  Store, Plug, BarChart3, HelpCircle, ArrowUpDown
 } from "lucide-react";
 import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
@@ -22,11 +22,14 @@ const NAV_MAIN = [
 const NAV_TOOLS = [
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/ai/winning-products", label: "AI Research", icon: Sparkles },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/products/compare", label: "Compare", icon: ArrowUpDown },
   { href: "/integrations", label: "Integrations", icon: Plug },
 ];
 
 const NAV_BOTTOM = [
   { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/help", label: "Help Center", icon: HelpCircle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
