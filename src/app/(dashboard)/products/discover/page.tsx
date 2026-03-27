@@ -314,6 +314,35 @@ function ProductCard({
           </div>
         )}
 
+        {/* Supplier Reliability Score */}
+        {(() => {
+          let score = 50;
+          if (product.rating >= 4.5) score += 25;
+          else if (product.rating >= 4.0) score += 15;
+          else if (product.rating > 0) score += 5;
+          if (product.totalOrders > 1000) score += 20;
+          else if (product.totalOrders > 100) score += 10;
+          if (freeShipping) score += 5;
+          score = Math.min(100, score);
+
+          const color = score >= 80
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+            : score >= 60
+            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+          const label = score >= 80 ? "Excellent" : score >= 60 ? "Good" : "Fair";
+
+          return (
+            <div className="flex items-center gap-1.5">
+              <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${color}`}>
+                <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.403 12.652a3 3 0 0 0 0-5.304 3 3 0 0 0-3.75-3.751 3 3 0 0 0-5.305 0 3 3 0 0 0-3.751 3.75 3 3 0 0 0 0 5.305 3 3 0 0 0 3.75 3.751 3 3 0 0 0 5.305 0 3 3 0 0 0 3.751-3.75Zm-2.546-4.46a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" /></svg>
+                {label} Supplier
+              </div>
+              <span className="text-[10px] text-zinc-400">{score}/100</span>
+            </div>
+          );
+        })()}
+
         {/* Buttons */}
         <div className="flex gap-2 mt-1">
           <Button

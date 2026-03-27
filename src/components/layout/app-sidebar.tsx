@@ -5,21 +5,32 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import {
   LayoutDashboard, Package, ShoppingCart, Zap,
-  Sparkles, Settings, ChevronLeft, ChevronRight, CreditCard, LogOut, Globe
+  Sparkles, Settings, ChevronLeft, ChevronRight, CreditCard, LogOut, Globe,
+  Store, Plug
 } from "lucide-react";
 import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 
-const NAV_ITEMS = [
+const NAV_MAIN = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/products/discover", label: "Discover", icon: Globe },
   { href: "/products", label: "Products", icon: Package },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/stores", label: "Stores", icon: Store },
+];
+
+const NAV_TOOLS = [
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/ai/winning-products", label: "AI Research", icon: Sparkles },
+  { href: "/integrations", label: "Integrations", icon: Plug },
+];
+
+const NAV_BOTTOM = [
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+const NAV_ITEMS = [...NAV_MAIN, ...NAV_TOOLS, ...NAV_BOTTOM];
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -47,29 +58,91 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-3">
-        {NAV_ITEMS.map((item) => {
-          // Exact match for /products to avoid conflicting with /products/discover
-          const isActive = item.href === "/products"
-            ? pathname === "/products" || pathname === "/products/import"
-            : pathname?.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white"
-                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-white"
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto p-3">
+        {/* Main nav */}
+        <div className="space-y-1">
+          {NAV_MAIN.map((item) => {
+            const isActive = item.href === "/products"
+              ? pathname === "/products" || pathname === "/products/import"
+              : pathname?.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-white"
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Section divider - Tools */}
+        {!collapsed && (
+          <div className="mt-5 mb-2 px-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Tools</span>
+          </div>
+        )}
+        {collapsed && <div className="my-3 border-t border-zinc-200 dark:border-zinc-800" />}
+
+        <div className="space-y-1">
+          {NAV_TOOLS.map((item) => {
+            const isActive = pathname?.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-white"
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Section divider - Settings */}
+        {!collapsed && (
+          <div className="mt-5 mb-2 px-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Account</span>
+          </div>
+        )}
+        {collapsed && <div className="my-3 border-t border-zinc-200 dark:border-zinc-800" />}
+
+        <div className="space-y-1">
+          {NAV_BOTTOM.map((item) => {
+            const isActive = pathname?.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-white"
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Footer */}
