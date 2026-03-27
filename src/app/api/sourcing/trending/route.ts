@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl;
     const category = searchParams.get("category") ?? undefined;
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
+    const limit = Math.min(Math.max(1, Number(searchParams.get("limit") ?? "20")), 50);
 
     // Try cached products first
     const cachedCount = await catalogService.getCachedCount();
@@ -27,8 +28,8 @@ export async function GET(req: NextRequest) {
       const result = await catalogService.getCachedProducts({
         category,
         page,
-        limit: 12,
-        trending: true,
+        limit,
+        trending: !category, // only filter trending when showing "all" — when a category is selected, show all products in it
         sort: "best_selling",
       });
 

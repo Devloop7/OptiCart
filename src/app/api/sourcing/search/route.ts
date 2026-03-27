@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
     const category = searchParams.get("category") ?? undefined;
     const sort = searchParams.get("sort") ?? "best_selling";
-    const limit = Math.min(Math.max(1, Number(searchParams.get("limit") ?? "12")), 50);
+    const limit = Math.min(Math.max(1, Number(searchParams.get("limit") ?? "20")), 50);
 
     // Try cached products first (need at least 50 to be useful)
     const cachedCount = await catalogService.getCachedCount();

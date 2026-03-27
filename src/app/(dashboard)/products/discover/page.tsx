@@ -63,16 +63,29 @@ interface SearchResult {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "electronics", label: "Electronics" },
-  { id: "fashion", label: "Fashion" },
-  { id: "home", label: "Home" },
-  { id: "beauty", label: "Beauty" },
-  { id: "sports", label: "Sports" },
-  { id: "toys", label: "Toys" },
-  { id: "pets", label: "Pets" },
-  { id: "auto", label: "Auto" },
+const CATEGORY_META: Record<string, { icon: string; color: string; gradient: string }> = {
+  electronics: { icon: "🔌", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", gradient: "from-blue-500 to-indigo-500" },
+  fashion: { icon: "👗", color: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400", gradient: "from-pink-500 to-rose-500" },
+  home: { icon: "🏡", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", gradient: "from-emerald-500 to-teal-500" },
+  beauty: { icon: "💄", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", gradient: "from-purple-500 to-violet-500" },
+  sports: { icon: "💪", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", gradient: "from-orange-500 to-amber-500" },
+  toys: { icon: "🧸", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", gradient: "from-yellow-500 to-orange-500" },
+  pets: { icon: "🐾", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", gradient: "from-amber-500 to-yellow-600" },
+  auto: { icon: "🚗", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400", gradient: "from-cyan-500 to-blue-500" },
+  general: { icon: "📦", color: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400", gradient: "from-zinc-500 to-zinc-600" },
+};
+
+// Fallback static categories (used if API categories aren't loaded yet)
+const STATIC_CATEGORIES = [
+  { id: "all", name: "All Products", count: 0 },
+  { id: "electronics", name: "Electronics", count: 0 },
+  { id: "fashion", name: "Fashion", count: 0 },
+  { id: "home", name: "Home & Garden", count: 0 },
+  { id: "beauty", name: "Beauty & Health", count: 0 },
+  { id: "sports", name: "Sports & Outdoors", count: 0 },
+  { id: "toys", name: "Toys & Hobbies", count: 0 },
+  { id: "pets", name: "Pets", count: 0 },
+  { id: "auto", name: "Auto", count: 0 },
 ];
 
 type SortOption = "trending" | "newest" | "price-asc" | "price-desc" | "rating";
@@ -369,6 +382,12 @@ function ProductCard({
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
+interface ApiCategory {
+  id: string;
+  name: string;
+  count: number;
+}
+
 export default function DiscoverPage() {
   const router = useRouter();
   const categoryScrollRef = useRef<HTMLDivElement>(null);
@@ -381,6 +400,8 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SearchResult | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<SourcedProduct | null>(null);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [showCategoryBrowser, setShowCategoryBrowser] = useState(false);
 
   // Advanced filters
   const [showFilters, setShowFilters] = useState(false);
@@ -388,12 +409,31 @@ export default function DiscoverPage() {
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState(0);
 
+  // Load categories from API
+  useEffect(() => {
+    fetch("/api/sourcing/categories")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok && Array.isArray(json.data) && json.data.length > 0) {
+          setCategories(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build display categories: "All" first, then API categories (or static fallback)
+  const displayCategories = [
+    { id: "all", name: "All Products", count: categories.reduce((sum, c) => sum + c.count, 0) || 0 },
+    ...(categories.length > 0 ? categories : STATIC_CATEGORIES.slice(1)),
+  ];
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       params.set("page", String(page));
+      params.set("limit", "20");
       if (category !== "all") params.set("category", category);
 
       const endpoint = !query && category === "all"
@@ -462,14 +502,30 @@ export default function DiscoverPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-          Discover Products
-        </h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          Browse trending products from suppliers. Import with one click to start selling.
-        </p>
+      {/* Header with stats */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
+            Discover Products
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            Browse trending products from AliExpress suppliers. Import with one click.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {data && (
+            <div className="flex items-center gap-4 text-xs text-zinc-400">
+              <span className="flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                {data.total.toLocaleString()} products
+              </span>
+              <span className="flex items-center gap-1">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                {displayCategories.filter(c => c.id !== "all").length} categories
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Search bar */}
@@ -559,26 +615,86 @@ export default function DiscoverPage() {
         </Card>
       )}
 
-      {/* Category pills — horizontally scrollable on mobile */}
-      <div
-        ref={categoryScrollRef}
-        className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
-        style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}
-      >
-        {CATEGORIES.map((cat) => (
+      {/* Category browser toggle */}
+      <div className="flex items-center justify-between">
+        <div
+          ref={categoryScrollRef}
+          className="flex gap-1.5 overflow-x-auto pb-1 flex-1"
+          style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {displayCategories.map((cat) => {
+            const meta = CATEGORY_META[cat.id] || CATEGORY_META.general;
+            const isActive = category === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => handleCategoryChange(cat.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0 ${
+                  isActive
+                    ? "bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-900"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                }`}
+              >
+                {cat.id !== "all" && <span className="text-sm">{meta.icon}</span>}
+                {cat.name}
+                {cat.count > 0 && (
+                  <span className={`text-[10px] ${isActive ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400"}`}>
+                    {cat.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => setShowCategoryBrowser(!showCategoryBrowser)}
+          className="ml-2 shrink-0 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium"
+        >
+          {showCategoryBrowser ? "Hide" : "Browse All"}
+        </button>
+      </div>
+
+      {/* Expanded category browser with cards */}
+      {showCategoryBrowser && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {displayCategories.filter(c => c.id !== "all").map((cat) => {
+            const meta = CATEGORY_META[cat.id] || CATEGORY_META.general;
+            const isActive = category === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => { handleCategoryChange(cat.id); setShowCategoryBrowser(false); }}
+                className={`relative overflow-hidden rounded-xl border-2 p-4 text-left transition-all hover:shadow-md ${
+                  isActive
+                    ? "border-indigo-500 bg-indigo-50/50 shadow-sm dark:bg-indigo-950/20"
+                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600"
+                }`}
+              >
+                <div className={`absolute top-0 right-0 h-16 w-16 rounded-bl-[40px] opacity-10 bg-gradient-to-br ${meta.gradient}`} />
+                <span className="text-2xl">{meta.icon}</span>
+                <p className="mt-1.5 text-sm font-semibold">{cat.name}</p>
+                {cat.count > 0 && (
+                  <p className="text-[11px] text-zinc-400 mt-0.5">{cat.count} products</p>
+                )}
+                {isActive && (
+                  <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-indigo-500" />
+                )}
+              </button>
+            );
+          })}
+          {/* Reset to all */}
           <button
-            key={cat.id}
-            onClick={() => handleCategoryChange(cat.id)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
-              category === cat.id
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+            onClick={() => { handleCategoryChange("all"); setShowCategoryBrowser(false); }}
+            className={`rounded-xl border-2 border-dashed p-4 text-left transition-all hover:border-zinc-400 ${
+              category === "all" ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20" : "border-zinc-300 dark:border-zinc-700"
             }`}
           >
-            {cat.label}
+            <span className="text-2xl">🌐</span>
+            <p className="mt-1.5 text-sm font-semibold">All Products</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">Browse everything</p>
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Sort + count bar */}
       <div className="flex items-center justify-between">
