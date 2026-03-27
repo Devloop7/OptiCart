@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { catalogService } from "@/lib/product-catalog";
 import { getProductProvider } from "@/lib/product-providers";
 
 export async function GET(
@@ -7,6 +8,18 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    // Try cached product first
+    const cached = await catalogService.getCachedProduct(id);
+    if (cached) {
+      return NextResponse.json({
+        ok: true,
+        data: cached,
+        source: "cached",
+      });
+    }
+
+    // Fall back to provider
     const provider = await getProductProvider();
     const product = await provider.getProductDetails(id);
 
@@ -17,7 +30,11 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ ok: true, data: product });
+    return NextResponse.json({
+      ok: true,
+      data: product,
+      source: "demo",
+    });
   } catch (err) {
     console.error("Sourcing product detail error:", err);
     return NextResponse.json(
