@@ -25,12 +25,12 @@ interface DashboardData {
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive"> = {
   NEW: "default",
-  PENDING: "warning",
-  ORDERED: "secondary",
+  IN_PROGRESS: "warning",
+  ORDERED_FROM_SUPPLIER: "secondary",
   SHIPPED: "success",
   DELIVERED: "success",
   CANCELLED: "destructive",
-  REFUNDED: "destructive",
+  ERROR: "destructive",
 };
 
 export default function DashboardPage() {

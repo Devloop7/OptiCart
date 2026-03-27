@@ -62,7 +62,25 @@ export async function GET(req: NextRequest) {
       db.storeOrder.count({ where }),
     ]);
 
-    return success({ orders, total, page, limit });
+    // Serialize Decimal fields to numbers for JSON
+    const serialized = orders.map((o) => ({
+      ...o,
+      totalAmount: Number(o.totalAmount),
+      totalProfit: Number(o.totalProfit),
+      itemCount: o.items.length,
+      items: o.items.map((i) => ({
+        ...i,
+        supplierCost: Number(i.supplierCost),
+        sellingPrice: Number(i.sellingPrice),
+        profit: Number(i.profit),
+      })),
+      supplierOrders: o.supplierOrders.map((so) => ({
+        ...so,
+        cost: Number(so.cost),
+      })),
+    }));
+
+    return success({ orders: serialized, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     return handleApiError(err);
   }

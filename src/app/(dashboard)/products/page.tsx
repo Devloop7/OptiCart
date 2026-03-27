@@ -46,7 +46,7 @@ export default function ProductsPage() {
       if (statusFilter !== "ALL") params.set("status", statusFilter);
       const res = await fetch(`/api/products?${params}`);
       const json = await res.json();
-      if (json.ok) setProducts(json.data ?? []);
+      if (json.ok) setProducts(json.data?.products ?? []);
     } catch {
       // silent
     } finally {

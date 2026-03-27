@@ -50,8 +50,9 @@ export async function GET(req: NextRequest) {
         where,
         include: {
           variants: true,
-          storeLinks: true,
+          storeLinks: { include: { store: { select: { id: true, name: true } } } },
           supplierProduct: { select: { id: true, title: true, sourceUrl: true } },
+          _count: { select: { variants: true } },
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -60,7 +61,17 @@ export async function GET(req: NextRequest) {
       db.product.count({ where }),
     ]);
 
-    return success({ products, total, page, limit });
+    // Serialize Decimal fields to numbers for JSON
+    const serialized = products.map((p) => ({
+      ...p,
+      variants: p.variants.map((v) => ({
+        ...v,
+        supplierCost: Number(v.supplierCost),
+        retailPrice: Number(v.retailPrice),
+      })),
+    }));
+
+    return success({ products: serialized, total, page, limit });
   } catch (err) {
     return handleApiError(err);
   }

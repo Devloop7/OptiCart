@@ -25,12 +25,12 @@ interface Order {
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive"> = {
   NEW: "default",
-  PENDING: "warning",
-  ORDERED: "secondary",
+  IN_PROGRESS: "warning",
+  ORDERED_FROM_SUPPLIER: "secondary",
   SHIPPED: "success",
   DELIVERED: "success",
   CANCELLED: "destructive",
-  REFUNDED: "destructive",
+  ERROR: "destructive",
 };
 
 export default function OrdersPage() {
@@ -93,11 +93,12 @@ export default function OrdersPage() {
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
             <SelectItem value="NEW">New</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="ORDERED">Ordered</SelectItem>
+            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+            <SelectItem value="ORDERED_FROM_SUPPLIER">Ordered from Supplier</SelectItem>
             <SelectItem value="SHIPPED">Shipped</SelectItem>
             <SelectItem value="DELIVERED">Delivered</SelectItem>
             <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            <SelectItem value="ERROR">Error</SelectItem>
           </SelectContent>
         </Select>
       </div>

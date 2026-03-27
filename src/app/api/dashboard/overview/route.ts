@@ -44,14 +44,27 @@ export async function GET(_req: NextRequest) {
       db.store.count({ where: { workspaceId: wId } }),
     ]);
 
+    // Flatten recentOrders to match dashboard page expectations
+    const serializedOrders = recentOrders.map((o) => ({
+      id: o.id,
+      externalOrderId: o.externalOrderId ?? "-",
+      customerName: o.customerName ?? "Unknown",
+      status: o.status,
+      totalAmount: Number(o.totalAmount),
+      totalProfit: Number(o.totalProfit),
+      createdAt: o.createdAt.toISOString(),
+      storeName: o.store?.name ?? "-",
+      itemCount: o.items.length,
+    }));
+
     return success({
       totalProducts,
       activeProducts,
       totalOrders,
       newOrders,
-      revenue: revenueAgg._sum.totalAmount ?? 0,
-      profit: profitAgg._sum.totalProfit ?? 0,
-      recentOrders,
+      revenue: Number(revenueAgg._sum.totalAmount ?? 0),
+      profit: Number(profitAgg._sum.totalProfit ?? 0),
+      recentOrders: serializedOrders,
       storesCount,
     });
   } catch (err) {
