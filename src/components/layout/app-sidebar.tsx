@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import {
   LayoutDashboard, Package, ShoppingCart, Zap,
-  Sparkles, Settings, ChevronLeft, ChevronRight, CreditCard, LogOut
+  Sparkles, Settings, ChevronLeft, ChevronRight, CreditCard, LogOut, Globe
 } from "lucide-react";
 import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/products/discover", label: "Discover", icon: Globe },
   { href: "/products", label: "Products", icon: Package },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/automations", label: "Automations", icon: Zap },
@@ -48,7 +49,10 @@ export function AppSidebar() {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-3">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname?.startsWith(item.href);
+          // Exact match for /products to avoid conflicting with /products/discover
+          const isActive = item.href === "/products"
+            ? pathname === "/products" || pathname === "/products/import"
+            : pathname?.startsWith(item.href);
           return (
             <Link
               key={item.href}

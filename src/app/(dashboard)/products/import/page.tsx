@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Package, Check, X, DollarSign, Star, Truck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,8 @@ type Step = "input" | "fetching" | "review" | "importing" | "done";
 
 export default function ImportPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preloadProductId = searchParams.get("productId");
   const [step, setStep] = useState<Step>("input");
   const [urls, setUrls] = useState("");
   const [products, setProducts] = useState<FetchedProduct[]>([]);
@@ -110,6 +112,45 @@ export default function ImportPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Auto-load product from discover page
+  useEffect(() => {
+    if (!preloadProductId) return;
+    setStep("fetching");
+    fetch(`/api/sourcing/product/${encodeURIComponent(preloadProductId)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok && json.data) {
+          const p = json.data;
+          const fetched: FetchedProduct = {
+            externalId: p.externalId,
+            title: p.title,
+            description: p.description ?? "",
+            images: p.images ?? [],
+            rating: p.rating ?? 0,
+            totalOrders: p.totalOrders ?? 0,
+            sourceUrl: p.sourceUrl ?? "",
+            shippingOptions: p.shippingOptions ?? [],
+            variants: (p.variants ?? []).map((v: { id: string; name: string; price: number; stock: number }) => ({
+              externalId: v.id,
+              name: v.name,
+              price: v.price,
+              stock: v.stock,
+              sku: v.id,
+            })),
+            pricingMultiplier: 2.5,
+            suggestedRetailPrice: p.price * 2.5,
+          };
+          setProducts([fetched]);
+          setStep("review");
+        } else {
+          setStep("input");
+        }
+      })
+      .catch(() => {
+        setStep("input");
+      });
+  }, [preloadProductId]);
 
   async function handleFetch() {
     const lines = urls.split("\n").map((l) => l.trim()).filter(Boolean);
