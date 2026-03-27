@@ -536,15 +536,43 @@ export default function StoresPage() {
                     <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                     <Input
                       value={shopDomain}
-                      onChange={(e) => { setShopDomain(e.target.value); setConnectError(""); }}
+                      onChange={(e) => {
+                        let val = e.target.value.trim();
+                        // Strip https:// or http:// prefix automatically
+                        val = val.replace(/^https?:\/\//, "");
+                        setShopDomain(val);
+                        setConnectError("");
+                      }}
                       placeholder="mystore.myshopify.com"
                       className="pl-10"
                       onKeyDown={(e) => { if (e.key === "Enter" && shopDomain.trim()) connectStore(); }}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-zinc-400">
-                    Enter your store name (e.g. mystore) or full URL
-                  </p>
+                  {shopDomain.trim() && !shopDomain.includes(".") && (
+                    <p className="mt-1 text-xs text-blue-500">
+                      Will connect to: <strong>{shopDomain.trim()}.myshopify.com</strong>
+                    </p>
+                  )}
+                  {!shopDomain.trim() && (
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Enter your store name (e.g. mystore) or full URL
+                    </p>
+                  )}
+                </div>
+
+                {/* Trust signals */}
+                <div className="rounded-lg bg-zinc-50 p-3 space-y-2 dark:bg-zinc-800/50">
+                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">What happens next</p>
+                  {[
+                    { icon: Link2, text: "We securely connect to your Shopify store via OAuth" },
+                    { icon: Package, text: "OptiCart can push products & sync inventory to your store" },
+                    { icon: Settings, text: "You can disconnect anytime from this page" },
+                  ].map((item) => (
+                    <div key={item.text} className="flex items-center gap-2 text-xs text-zinc-500">
+                      <item.icon className="h-3 w-3 shrink-0 text-emerald-500" />
+                      {item.text}
+                    </div>
+                  ))}
                 </div>
 
                 {connectError && (
