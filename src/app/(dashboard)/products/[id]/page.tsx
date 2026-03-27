@@ -24,7 +24,7 @@ interface StoreLink {
   id: string;
   isPushed: boolean;
   externalProductId: string | null;
-  store: { id: string; name: string; platform: string };
+  store: { id: string; name: string; platform?: string };
 }
 
 interface SupplierInfo {
@@ -38,13 +38,42 @@ interface ProductDetail {
   id: string;
   title: string;
   description: string | null;
-  images: string[];
+  images: unknown; // Json field from Prisma
   tags: string[];
   category: string | null;
   status: string;
   variants: Variant[];
   storeLinks: StoreLink[];
   supplierProduct: SupplierInfo | null;
+}
+
+/** Safely parse images from Prisma Json field into a string array */
+function parseImages(images: unknown): string[] {
+  if (!images) return [];
+  if (Array.isArray(images)) return images.filter((i): i is string => typeof i === "string");
+  if (typeof images === "string") {
+    try {
+      const parsed = JSON.parse(images);
+      if (Array.isArray(parsed)) return parsed.filter((i: unknown): i is string => typeof i === "string");
+    } catch {
+      if (images.startsWith("http")) return [images];
+    }
+  }
+  return [];
+}
+
+/** Convert Prisma Decimal fields to plain numbers */
+function serializeProduct(data: Record<string, unknown>): ProductDetail {
+  const d = data as unknown as ProductDetail;
+  return {
+    ...d,
+    variants: (d.variants ?? []).map((v) => ({
+      ...v,
+      supplierCost: Number(v.supplierCost) || 0,
+      retailPrice: Number(v.retailPrice) || 0,
+      stock: Number(v.stock) || 0,
+    })),
+  };
 }
 
 export default function ProductDetailPage() {
@@ -64,13 +93,14 @@ export default function ProductDetailPage() {
   const [status, setStatus] = useState("ACTIVE");
   const [variants, setVariants] = useState<Variant[]>([]);
   const [shippingEstimate, setShippingEstimate] = useState(2.5);
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     fetch(`/api/products/${productId}`)
       .then((r) => r.json())
       .then((json) => {
         if (json.ok && json.data) {
-          const p = json.data as ProductDetail;
+          const p = serializeProduct(json.data as Record<string, unknown>);
           setProduct(p);
           setTitle(p.title);
           setDescription(p.description ?? "");
@@ -98,17 +128,24 @@ export default function ProductDetailPage() {
           status,
           variants: variants.map((v) => ({
             id: v.id,
+            name: v.name,
+            sku: v.sku,
+            supplierCost: v.supplierCost,
             retailPrice: v.retailPrice,
+            stock: v.stock,
             isActive: v.isActive,
           })),
         }),
       });
       const json = await res.json();
       if (json.ok) {
-        alert("Product saved!");
+        setSaveMessage({ type: "success", text: "Product saved successfully." });
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        setSaveMessage({ type: "error", text: json.error ?? "Failed to save product." });
       }
     } catch {
-      alert("Failed to save product.");
+      setSaveMessage({ type: "error", text: "Network error. Please try again." });
     } finally {
       setSaving(false);
     }
@@ -161,6 +198,16 @@ export default function ProductDetailPage() {
           {saving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
+
+      {saveMessage && (
+        <div className={`rounded-lg px-4 py-3 text-sm ${
+          saveMessage.type === "success"
+            ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"
+            : "border border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400"
+        }`}>
+          {saveMessage.text}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Main info */}
@@ -291,9 +338,9 @@ export default function ProductDetailPage() {
                   const profit = v.retailPrice - totalCost;
                   const margin = v.retailPrice > 0 ? (profit / v.retailPrice) * 100 : 0;
                   return (
-                    <div key={v.id} className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                    <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-700 gap-1">
                       <span className="text-sm font-medium">{v.name}</span>
-                      <div className="flex items-center gap-6 text-sm">
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm">
                         <span className="text-zinc-500">
                           ${v.supplierCost.toFixed(2)} + ${shippingEstimate.toFixed(2)} = ${totalCost.toFixed(2)}
                         </span>
@@ -312,6 +359,24 @@ export default function ProductDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Product Images */}
+          {parseImages(product.images).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Images</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-2">
+                  {parseImages(product.images).map((img, i) => (
+                    <div key={i} className="aspect-square rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                      <img src={img} alt={`Product ${i + 1}`} className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Store Links */}
           <Card>
             <CardHeader>
@@ -325,7 +390,7 @@ export default function ProductDetailPage() {
                   <div key={sl.id} className="flex items-center justify-between rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
                     <div>
                       <p className="text-sm font-medium">{sl.store.name}</p>
-                      <p className="text-xs text-zinc-500">{sl.store.platform}</p>
+                      {sl.store.platform && <p className="text-xs text-zinc-500">{sl.store.platform}</p>}
                     </div>
                     <Badge variant={sl.isPushed ? "success" : "warning"}>
                       {sl.isPushed ? "Pushed" : "Pending"}

@@ -12,13 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 interface Order {
   id: string;
-  externalOrderId: string;
-  customerName: string;
+  externalOrderId: string | null;
+  customerName: string | null;
   status: string;
   totalAmount: number;
   totalProfit: number;
   createdAt: string;
-  store: { name: string };
+  store: { name: string } | null;
   _count?: { items: number };
   itemCount?: number;
 }
@@ -42,9 +42,11 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [fetchError, setFetchError] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const params = new URLSearchParams();
       params.set("page", String(page));
@@ -58,9 +60,11 @@ export default function OrdersPage() {
         setOrders(json.data?.orders ?? json.data ?? []);
         setTotal(json.data?.total ?? 0);
         setTotalPages(json.data?.totalPages ?? 1);
+      } else {
+        setFetchError(true);
       }
     } catch {
-      // silent
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -103,6 +107,12 @@ export default function OrdersPage() {
         </Select>
       </div>
 
+      {fetchError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
+          Failed to load orders. Please try again.
+        </div>
+      )}
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -139,19 +149,19 @@ export default function OrdersPage() {
                     className="cursor-pointer"
                     onClick={() => router.push(`/orders/${order.id}`)}
                   >
-                    <TableCell className="font-medium">{order.externalOrderId}</TableCell>
-                    <TableCell>{order.customerName}</TableCell>
+                    <TableCell className="font-medium">{order.externalOrderId ?? "-"}</TableCell>
+                    <TableCell>{order.customerName ?? "Unknown"}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[order.status] ?? "secondary"}>
-                        {order.status}
+                        {order.status?.replace(/_/g, " ") ?? "Unknown"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       {order.itemCount ?? order._count?.items ?? "-"}
                     </TableCell>
-                    <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${(Number(order.totalAmount) || 0).toFixed(2)}</TableCell>
                     <TableCell className="text-right text-emerald-600 font-medium">
-                      ${order.totalProfit.toFixed(2)}
+                      ${(Number(order.totalProfit) || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-sm text-zinc-500">{order.store?.name ?? "-"}</TableCell>
                     <TableCell className="text-sm text-zinc-500">

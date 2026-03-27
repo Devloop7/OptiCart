@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DollarSign, TrendingUp, Package, ShoppingCart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,16 +35,19 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warn
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch("/api/dashboard/overview")
       .then((r) => r.json())
       .then((json) => {
         if (json.ok) setData(json.data);
+        else setError(true);
       })
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -57,6 +61,17 @@ export default function DashboardPage() {
           ))}
         </div>
         <div className="h-64 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-950/20">
+          <p className="text-sm text-red-600 dark:text-red-400">Failed to load dashboard data. Please refresh the page.</p>
+        </div>
       </div>
     );
   }
@@ -114,18 +129,22 @@ export default function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {d.recentOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.externalOrderId}</TableCell>
-                    <TableCell>{order.customerName}</TableCell>
+                  <TableRow
+                    key={order.id}
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/orders/${order.id}`)}
+                  >
+                    <TableCell className="font-medium">{order.externalOrderId ?? "-"}</TableCell>
+                    <TableCell>{order.customerName ?? "Unknown"}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[order.status] ?? "secondary"}>
-                        {order.status}
+                        {order.status?.replace(/_/g, " ") ?? "Unknown"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-zinc-500">{order.storeName}</TableCell>
-                    <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-sm text-zinc-500">{order.storeName ?? "-"}</TableCell>
+                    <TableCell className="text-right">${(Number(order.totalAmount) || 0).toFixed(2)}</TableCell>
                     <TableCell className="text-right text-emerald-600 font-medium">
-                      ${order.totalProfit.toFixed(2)}
+                      ${(Number(order.totalProfit) || 0).toFixed(2)}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -14,12 +14,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 interface Product {
   id: string;
   title: string;
-  images: string[];
+  images: unknown; // Json field from Prisma - could be string, string[], or null
   status: string;
   category: string | null;
   variants: Array<{ supplierCost: number; retailPrice: number }>;
   storeLinks: Array<{ store: { name: string } }>;
   _count?: { variants: number };
+}
+
+/** Safely parse images from Prisma Json field into a string array */
+function parseImages(images: unknown): string[] {
+  if (!images) return [];
+  if (Array.isArray(images)) return images.filter((i): i is string => typeof i === "string");
+  if (typeof images === "string") {
+    try {
+      const parsed = JSON.parse(images);
+      if (Array.isArray(parsed)) return parsed.filter((i: unknown): i is string => typeof i === "string");
+    } catch {
+      // If it's a single URL string, wrap it
+      if (images.startsWith("http")) return [images];
+    }
+  }
+  return [];
 }
 
 const STATUS_VARIANT: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
@@ -37,9 +53,11 @@ export default function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
@@ -47,8 +65,9 @@ export default function ProductsPage() {
       const res = await fetch(`/api/products?${params}`);
       const json = await res.json();
       if (json.ok) setProducts(json.data?.products ?? []);
+      else setFetchError(true);
     } catch {
-      // silent
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -95,16 +114,16 @@ export default function ProductsPage() {
   }
 
   function costRange(variants: Product["variants"]) {
-    if (!variants.length) return "-";
-    const costs = variants.map((v) => v.supplierCost);
+    if (!variants || !variants.length) return "-";
+    const costs = variants.map((v) => Number(v.supplierCost) || 0);
     const min = Math.min(...costs);
     const max = Math.max(...costs);
     return min === max ? `$${min.toFixed(2)}` : `$${min.toFixed(2)} - $${max.toFixed(2)}`;
   }
 
   function priceRange(variants: Product["variants"]) {
-    if (!variants.length) return "-";
-    const prices = variants.map((v) => v.retailPrice);
+    if (!variants || !variants.length) return "-";
+    const prices = variants.map((v) => Number(v.retailPrice) || 0);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     return min === max ? `$${min.toFixed(2)}` : `$${min.toFixed(2)} - $${max.toFixed(2)}`;
@@ -163,6 +182,12 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {fetchError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
+          Failed to load products. Please try again.
+        </div>
+      )}
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -216,8 +241,8 @@ export default function ProductsPage() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
-                          {product.images?.[0] ? (
-                            <img src={product.images[0]} alt="" className="h-full w-full object-cover" />
+                          {parseImages(product.images)[0] ? (
+                            <img src={parseImages(product.images)[0]} alt="" className="h-full w-full object-cover" />
                           ) : (
                             <Package className="h-5 w-5 text-zinc-400" />
                           )}

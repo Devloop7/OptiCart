@@ -38,28 +38,49 @@ interface OrderLog {
 
 interface OrderDetail {
   id: string;
-  externalOrderId: string;
+  externalOrderId: string | null;
   status: string;
-  customerName: string;
+  customerName: string | null;
   customerEmail: string | null;
   shippingAddress: Record<string, string> | null;
   totalAmount: number;
   totalProfit: number;
   createdAt: string;
-  store: { name: string; platform: string };
+  store: { name: string; platform?: string } | null;
   items: OrderItem[];
   supplierOrders: SupplierOrder[];
   logs?: OrderLog[];
 }
 
+/** Convert Prisma Decimal fields to plain numbers for safe rendering */
+function serializeOrderDetail(data: Record<string, unknown>): OrderDetail {
+  const d = data as unknown as OrderDetail;
+  return {
+    ...d,
+    totalAmount: Number(d.totalAmount) || 0,
+    totalProfit: Number(d.totalProfit) || 0,
+    items: (d.items ?? []).map((item) => ({
+      ...item,
+      supplierCost: Number(item.supplierCost) || 0,
+      sellingPrice: Number(item.sellingPrice) || 0,
+      profit: Number(item.profit) || 0,
+    })),
+    supplierOrders: (d.supplierOrders ?? []).map((so) => ({
+      ...so,
+      cost: Number(so.cost) || 0,
+      supplierOrderId: so.supplierOrderId ?? "-",
+    })),
+  };
+}
+
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive"> = {
   NEW: "default",
-  PENDING: "warning",
-  ORDERED: "secondary",
+  IN_PROGRESS: "warning",
+  ORDERED_FROM_SUPPLIER: "secondary",
   SHIPPED: "success",
   DELIVERED: "success",
   CANCELLED: "destructive",
-  REFUNDED: "destructive",
+  ERROR: "destructive",
 };
 
 export default function OrderDetailPage() {
@@ -76,7 +97,7 @@ export default function OrderDetailPage() {
     fetch(`/api/orders/${orderId}`)
       .then((r) => r.json())
       .then((json) => {
-        if (json.ok) setOrder(json.data);
+        if (json.ok) setOrder(serializeOrderDetail(json.data));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -85,17 +106,26 @@ export default function OrderDetailPage() {
   async function handleAction(action: string, body?: Record<string, unknown>) {
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/orders/${orderId}/${action}`, {
-        method: "POST",
+      // Map action names to PATCH body for the /api/orders/:id endpoint
+      const patchBody: Record<string, unknown> = { ...body };
+      if (action === "mark-ordered") patchBody.status = "ORDERED_FROM_SUPPLIER";
+      else if (action === "mark-shipped") patchBody.status = "SHIPPED";
+      else if (action === "mark-delivered") patchBody.status = "DELIVERED";
+      else if (action === "add-tracking" && body?.trackingNumber) {
+        patchBody.trackingNumber = body.trackingNumber;
+      }
+
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body ?? {}),
+        body: JSON.stringify(patchBody),
       });
       const json = await res.json();
       if (json.ok) {
-        // Refetch order
+        // Refetch full order data
         const r2 = await fetch(`/api/orders/${orderId}`);
         const j2 = await r2.json();
-        if (j2.ok) setOrder(j2.data);
+        if (j2.ok) setOrder(serializeOrderDetail(j2.data));
       }
     } catch {
       // silent
@@ -135,9 +165,9 @@ export default function OrderDetailPage() {
           <Button variant="ghost" size="icon" onClick={() => router.push("/orders")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Order {order.externalOrderId}</h1>
+          <h1 className="text-2xl font-bold">Order {order.externalOrderId ?? order.id.slice(0, 8)}</h1>
           <Badge variant={STATUS_VARIANT[order.status] ?? "secondary"}>
-            {order.status}
+            {order.status?.replace(/_/g, " ") ?? "Unknown"}
           </Badge>
         </div>
       </div>
@@ -153,13 +183,13 @@ export default function OrderDetailPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-zinc-500">Customer:</span>
-                  <p className="font-medium">{order.customerName}</p>
+                  <p className="font-medium">{order.customerName ?? "Unknown"}</p>
                   {order.customerEmail && <p className="text-zinc-500">{order.customerEmail}</p>}
                 </div>
                 <div>
                   <span className="text-zinc-500">Store:</span>
-                  <p className="font-medium">{order.store.name}</p>
-                  <p className="text-zinc-500">{order.store.platform}</p>
+                  <p className="font-medium">{order.store?.name ?? "-"}</p>
+                  {order.store?.platform && <p className="text-zinc-500">{order.store.platform}</p>}
                 </div>
                 {addr && (
                   <div className="col-span-2">
@@ -230,7 +260,7 @@ export default function OrderDetailPage() {
                     <div key={so.id} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Supplier Order: {so.supplierOrderId}</span>
-                        <Badge variant={STATUS_VARIANT[so.status] ?? "secondary"}>{so.status}</Badge>
+                        <Badge variant={STATUS_VARIANT[so.status] ?? "secondary"}>{so.status?.replace(/_/g, " ")}</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm text-zinc-500">
                         <div>Cost: ${so.cost.toFixed(2)}</div>
@@ -254,7 +284,7 @@ export default function OrderDetailPage() {
               <CardTitle className="text-base">Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {(order.status === "NEW" || order.status === "PENDING") && (
+              {(order.status === "NEW" || order.status === "IN_PROGRESS") && (
                 <Button
                   className="w-full"
                   onClick={() => handleAction("mark-ordered")}
@@ -265,7 +295,7 @@ export default function OrderDetailPage() {
                 </Button>
               )}
 
-              {(order.status === "ORDERED" || order.status === "NEW" || order.status === "PENDING") && (
+              {(order.status === "ORDERED_FROM_SUPPLIER" || order.status === "NEW" || order.status === "IN_PROGRESS") && (
                 <div className="space-y-2">
                   <Input
                     placeholder="Tracking number"
@@ -284,7 +314,7 @@ export default function OrderDetailPage() {
                 </div>
               )}
 
-              {order.status !== "SHIPPED" && order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
+              {order.status !== "SHIPPED" && order.status !== "DELIVERED" && order.status !== "CANCELLED" && order.status !== "ERROR" && (
                 <Button
                   variant="outline"
                   className="w-full"

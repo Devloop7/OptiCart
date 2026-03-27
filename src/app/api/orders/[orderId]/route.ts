@@ -52,7 +52,25 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
 
     if (!order) return error("Order not found", 404);
-    return success(order);
+
+    // Serialize Decimal fields to numbers for JSON
+    const serialized = {
+      ...order,
+      totalAmount: Number(order.totalAmount),
+      totalProfit: Number(order.totalProfit),
+      items: order.items.map((i) => ({
+        ...i,
+        supplierCost: Number(i.supplierCost),
+        sellingPrice: Number(i.sellingPrice),
+        profit: Number(i.profit),
+      })),
+      supplierOrders: order.supplierOrders.map((so) => ({
+        ...so,
+        cost: Number(so.cost),
+      })),
+    };
+
+    return success(serialized);
   } catch (err) {
     return handleApiError(err);
   }
@@ -142,7 +160,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
     });
 
-    return success(order);
+    // Serialize Decimal fields
+    const serialized = {
+      ...order,
+      totalAmount: Number(order.totalAmount),
+      totalProfit: Number(order.totalProfit),
+      items: order.items.map((i) => ({
+        ...i,
+        supplierCost: Number(i.supplierCost),
+        sellingPrice: Number(i.sellingPrice),
+        profit: Number(i.profit),
+      })),
+      supplierOrders: order.supplierOrders.map((so) => ({
+        ...so,
+        cost: Number(so.cost),
+      })),
+    };
+
+    return success(serialized);
   } catch (err) {
     return handleApiError(err);
   }

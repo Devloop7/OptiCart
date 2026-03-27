@@ -52,11 +52,16 @@ export default function BillingPage() {
 
   useEffect(() => {
     fetch("/api/settings/billing")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Not found");
+        return r.json();
+      })
       .then((json) => {
         if (json.ok) setData(json.data);
       })
-      .catch(() => {})
+      .catch(() => {
+        // Billing API not yet implemented - use fallback data
+      })
       .finally(() => setLoading(false));
   }, []);
 

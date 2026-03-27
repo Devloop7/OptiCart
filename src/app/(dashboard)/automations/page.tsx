@@ -75,6 +75,8 @@ export default function AutomationsPage() {
     }).finally(() => setLoading(false));
   }, []);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   async function toggleStatus(rule: AutomationRule) {
     const newStatus = rule.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
     try {
@@ -88,9 +90,14 @@ export default function AutomationsPage() {
         setRules((prev) =>
           prev.map((r) => (r.id === rule.id ? { ...r, status: newStatus } : r))
         );
+        setErrorMsg(null);
+      } else {
+        setErrorMsg(json.error ?? "Failed to update rule status.");
+        setTimeout(() => setErrorMsg(null), 3000);
       }
     } catch {
-      // silent
+      setErrorMsg("Network error. Please try again.");
+      setTimeout(() => setErrorMsg(null), 3000);
     }
   }
 
@@ -151,6 +158,12 @@ export default function AutomationsPage() {
           Create Rule
         </Button>
       </div>
+
+      {errorMsg && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
+          {errorMsg}
+        </div>
+      )}
 
       {/* Rules */}
       {rules.length === 0 ? (

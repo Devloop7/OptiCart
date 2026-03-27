@@ -55,7 +55,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
 
     if (!product) return error("Product not found", 404);
-    return success(product);
+
+    // Serialize Decimal fields to numbers for JSON
+    const serialized = {
+      ...product,
+      variants: product.variants.map((v) => ({
+        ...v,
+        supplierCost: Number(v.supplierCost),
+        retailPrice: Number(v.retailPrice),
+      })),
+    };
+
+    return success(serialized);
   } catch (err) {
     return handleApiError(err);
   }
@@ -123,7 +134,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
     });
 
-    return success(product);
+    // Serialize Decimal fields
+    const serialized = {
+      ...product,
+      variants: product.variants.map((v) => ({
+        ...v,
+        supplierCost: Number(v.supplierCost),
+        retailPrice: Number(v.retailPrice),
+      })),
+    };
+
+    return success(serialized);
   } catch (err) {
     return handleApiError(err);
   }

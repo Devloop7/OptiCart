@@ -36,6 +36,12 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("profile");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  function showMessage(type: "success" | "error", text: string) {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 3000);
+  }
 
   // Profile
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -81,9 +87,14 @@ export default function SettingsPage() {
         body: JSON.stringify({ name }),
       });
       const json = await res.json();
-      if (json.ok) setProfile(json.data);
+      if (json.ok) {
+        setProfile(json.data);
+        showMessage("success", "Profile saved.");
+      } else {
+        showMessage("error", json.error ?? "Failed to save profile.");
+      }
     } catch {
-      // silent
+      showMessage("error", "Network error. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -92,13 +103,19 @@ export default function SettingsPage() {
   async function saveWorkspace() {
     setSaving(true);
     try {
-      await fetch("/api/settings/workspace", {
+      const res = await fetch("/api/settings/workspace", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: wsName, currency: wsCurrency, timezone: wsTimezone }),
       });
+      const json = await res.json();
+      if (json.ok) {
+        showMessage("success", "Workspace settings saved.");
+      } else {
+        showMessage("error", json.error ?? "Failed to save workspace.");
+      }
     } catch {
-      // silent
+      showMessage("error", "Network error. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -122,6 +139,16 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
+
+      {message && (
+        <div className={`rounded-lg px-4 py-3 text-sm ${
+          message.type === "success"
+            ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"
+            : "border border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400"
+        }`}>
+          {message.text}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800 w-fit">
