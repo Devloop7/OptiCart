@@ -1,55 +1,66 @@
 import { NextRequest } from "next/server";
-import { success, handleApiError } from "@/lib/api-response";
-import {
-  createProductSchema,
-  productFilterSchema,
-} from "@/lib/validators/product";
+import { success, error, handleApiError } from "@/lib/api-response";
 import { db } from "@/lib/db";
+import { getWorkspace } from "@/lib/get-user";
+import { z } from "zod/v4";
 
 export const dynamic = "force-dynamic";
 
+const createProductSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  images: z.array(z.string()).optional().default([]),
+  tags: z.array(z.string()).optional().default([]),
+  category: z.string().optional(),
+  supplierProductId: z.string().optional(),
+  variants: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        sku: z.string().optional(),
+        supplierCost: z.number().min(0),
+        retailPrice: z.number().min(0),
+        stock: z.number().int().min(0).optional().default(0),
+      })
+    )
+    .min(1),
+});
+
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const filters = productFilterSchema.parse(
-      Object.fromEntries(searchParams.entries())
-    );
+    const { workspace } = await getWorkspace();
+    const url = req.nextUrl.searchParams;
 
-    const where: Record<string, unknown> = {};
-    if (filters.storeId) where.storeId = filters.storeId;
-    if (filters.supplierId) where.supplierId = filters.supplierId;
-    if (filters.status) where.status = filters.status;
-    if (filters.search) {
-      where.title = { contains: filters.search, mode: "insensitive" };
-    }
+    const status = url.get("status") as string | null;
+    const search = url.get("search");
+    const storeId = url.get("storeId");
+    const page = Math.max(1, parseInt(url.get("page") ?? "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt(url.get("limit") ?? "20", 10)));
+    const skip = (page - 1) * limit;
 
-    const orderBy: Record<string, string> = {};
-    if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || "asc";
-    } else {
-      orderBy.createdAt = "desc";
+    const where: Record<string, unknown> = { workspaceId: workspace.id };
+    if (status) where.status = status;
+    if (search) where.title = { contains: search, mode: "insensitive" };
+    if (storeId) {
+      where.storeLinks = { some: { storeId } };
     }
 
     const [products, total] = await Promise.all([
       db.product.findMany({
         where,
         include: {
-          store: { select: { id: true, name: true } },
-          supplier: { select: { id: true, name: true } },
+          variants: true,
+          storeLinks: true,
+          supplierProduct: { select: { id: true, title: true, sourceUrl: true } },
         },
-        skip: (filters.page - 1) * filters.limit,
-        take: filters.limit,
-        orderBy,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
       }),
       db.product.count({ where }),
     ]);
 
-    return success({
-      products,
-      total,
-      page: filters.page,
-      totalPages: Math.ceil(total / filters.limit),
-    });
+    return success({ products, total, page, limit });
   } catch (err) {
     return handleApiError(err);
   }
@@ -57,24 +68,30 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = createProductSchema.parse(await req.json());
+    const { workspace } = await getWorkspace();
+    const body = await req.json();
+    const data = createProductSchema.parse(body);
 
     const product = await db.product.create({
       data: {
-        storeId: body.storeId,
-        supplierId: body.supplierId,
-        title: body.title,
-        description: body.description,
-        supplierPrice: body.supplierPrice,
-        sellingPrice: body.sellingPrice,
-        currency: body.currency,
-        supplierStock: body.supplierStock,
-        images: body.images ?? [],
-        tags: body.tags ?? [],
-        variants: body.variants ?? [],
-        autoSync: body.autoSync,
-        status: body.supplierStock > 0 ? "ACTIVE" : "OUT_OF_STOCK",
+        workspaceId: workspace.id,
+        title: data.title,
+        description: data.description,
+        images: data.images,
+        tags: data.tags,
+        category: data.category,
+        supplierProductId: data.supplierProductId,
+        variants: {
+          create: data.variants.map((v) => ({
+            name: v.name,
+            sku: v.sku,
+            supplierCost: v.supplierCost,
+            retailPrice: v.retailPrice,
+            stock: v.stock,
+          })),
+        },
       },
+      include: { variants: true },
     });
 
     return success(product, 201);

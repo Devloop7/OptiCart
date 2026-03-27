@@ -4,20 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import {
-  LayoutDashboard, Store, Package, ShoppingCart, Eye,
-  Sparkles, Settings, ChevronLeft, ChevronRight, BarChart3, LogOut
+  LayoutDashboard, Package, ShoppingCart, Zap,
+  Sparkles, Settings, ChevronLeft, ChevronRight, CreditCard, LogOut
 } from "lucide-react";
 import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/stores", label: "Stores", icon: Store },
   { href: "/products", label: "Products", icon: Package },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/watcher", label: "Watcher", icon: Eye },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/ai/winning-products", label: "AI Sourcing", icon: Sparkles },
+  { href: "/automations", label: "Automations", icon: Zap },
+  { href: "/ai/winning-products", label: "AI Research", icon: Sparkles },
+  { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

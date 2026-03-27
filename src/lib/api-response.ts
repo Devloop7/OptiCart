@@ -13,8 +13,13 @@ export function handleApiError(err: unknown) {
   if (err instanceof ZodError) {
     return error("Validation error", 422, err.issues);
   }
-  if (err instanceof Error && err.message === "Unauthorized") {
-    return error("Unauthorized", 401);
+  if (err instanceof Error) {
+    if (err.message === "UNAUTHORIZED") {
+      return error("Unauthorized", 401);
+    }
+    if (err.message === "NO_WORKSPACE") {
+      return error("No workspace found", 403);
+    }
   }
   console.error("[API Error]", err);
   return error("Internal server error", 500);

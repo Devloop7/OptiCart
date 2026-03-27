@@ -1,122 +1,139 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, Package, ShoppingCart, Activity } from "lucide-react";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { SystemHealth } from "@/components/dashboard/system-health";
-import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { StoreStatus } from "@/components/dashboard/store-status";
-import { AutomationStatus } from "@/components/dashboard/automation-status";
+import { DollarSign, TrendingUp, Package, ShoppingCart } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface DashboardData {
-  stats: {
-    totalProfit: number;
-    activeListings: number;
-    ordersToday: number;
-    ordersTrend: number;
-    listingsTrend: number;
-    watcherStats: { active: number; paused: number; error: number };
-  } | null;
-  stores: Array<{
-    storeId: string;
-    storeName: string;
-    storeType: string;
-    isActive: boolean;
-    lastSyncAt: string | null;
-    productCount: number;
-  }>;
-  activities: Array<{
+  revenue: number;
+  profit: number;
+  activeProducts: number;
+  newOrders: number;
+  recentOrders: Array<{
     id: string;
-    action: string;
-    details: string;
-    severity: string;
+    externalOrderId: string;
+    customerName: string;
+    status: string;
+    totalAmount: number;
+    totalProfit: number;
     createdAt: string;
+    storeName: string;
   }>;
 }
+
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive"> = {
+  NEW: "default",
+  PENDING: "warning",
+  ORDERED: "secondary",
+  SHIPPED: "success",
+  DELIVERED: "success",
+  CANCELLED: "destructive",
+  REFUNDED: "destructive",
+};
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/dashboard/overview");
-        const json = await res.json();
-        if (json.ok) {
-          setData(json.data);
-        }
-      } catch {
-        // Fall through to show fallback
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    fetch("/api/dashboard/overview")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) setData(json.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
-
-  const stats = data?.stats ?? {
-    totalProfit: 0,
-    activeListings: 0,
-    ordersToday: 0,
-    ordersTrend: 0,
-    listingsTrend: 0,
-    watcherStats: { active: 0, paused: 0, error: 0 },
-  };
-
-  const watcherStats = stats.watcherStats;
-  const stores = data?.stores ?? [];
-  const activities = data?.activities ?? [];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-zinc-400 animate-pulse">Loading dashboard...</div>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-28 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+          ))}
+        </div>
+        <div className="h-64 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
       </div>
     );
   }
+
+  const d = data ?? { revenue: 0, profit: 0, activeProducts: 0, newOrders: 0, recentOrders: [] };
+
+  const kpis = [
+    { label: "Total Revenue", value: `$${d.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`, icon: DollarSign, color: "bg-blue-500" },
+    { label: "Total Profit", value: `$${d.profit.toLocaleString("en-US", { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: "bg-emerald-500" },
+    { label: "Active Products", value: d.activeProducts, icon: Package, color: "bg-violet-500" },
+    { label: "New Orders", value: d.newOrders, icon: ShoppingCart, color: "bg-amber-500" },
+  ];
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Profit"
-          value={`$${stats.totalProfit.toLocaleString()}`}
-          icon={DollarSign}
-          trend={{ value: 12.5, isPositive: stats.totalProfit >= 0 }}
-        />
-        <StatCard
-          title="Active Listings"
-          value={stats.activeListings}
-          icon={Package}
-          trend={{ value: stats.listingsTrend, isPositive: stats.listingsTrend >= 0 }}
-        />
-        <StatCard
-          title="Orders Today"
-          value={stats.ordersToday}
-          icon={ShoppingCart}
-          trend={{ value: stats.ordersTrend, isPositive: stats.ordersTrend >= 0 }}
-        />
-        <StatCard
-          title="Monitoring"
-          value={`${watcherStats.active} active`}
-          icon={Activity}
-          subtitle={`${watcherStats.active + watcherStats.paused + watcherStats.error} total`}
-        />
+        {kpis.map((kpi) => (
+          <Card key={kpi.label}>
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`rounded-lg p-2.5 ${kpi.color}`}>
+                <kpi.icon className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{kpi.value}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{kpi.label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Middle row: System Health + Automation + Store Status */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <SystemHealth />
-        <AutomationStatus stats={watcherStats} />
-        <StoreStatus stores={stores} />
-      </div>
-
-      {/* Activity Feed */}
-      <RecentActivity activities={activities} />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Recent Orders</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {d.recentOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+              <ShoppingCart className="h-10 w-10 mb-2" />
+              <p className="text-sm">No orders yet</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Profit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {d.recentOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.externalOrderId}</TableCell>
+                    <TableCell>{order.customerName}</TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANT[order.status] ?? "secondary"}>
+                        {order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-zinc-500">{order.storeName}</TableCell>
+                    <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-emerald-600 font-medium">
+                      ${order.totalProfit.toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

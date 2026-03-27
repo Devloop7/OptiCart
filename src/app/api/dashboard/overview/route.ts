@@ -1,78 +1,58 @@
 import { NextRequest } from "next/server";
-import { success, handleApiError } from "@/lib/api-response";
+import { success, error, handleApiError } from "@/lib/api-response";
 import { db } from "@/lib/db";
+import { getWorkspace } from "@/lib/get-user";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest) {
   try {
-    // Get the first user (demo mode — in production this would use the session)
-    const user = await db.user.findFirst();
-    if (!user) {
-      return success({
-        stats: null,
-        stores: [],
-        activities: [],
-      });
-    }
-
-    const userId = user.id;
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const { workspace } = await getWorkspace();
+    const wId = workspace.id;
 
     const [
-      totalProfitResult,
-      activeListings,
-      ordersToday,
-      watcherActive,
-      watcherPaused,
-      watcherError,
-      stores,
-      activities,
+      totalProducts,
+      activeProducts,
+      totalOrders,
+      newOrders,
+      revenueAgg,
+      profitAgg,
+      recentOrders,
+      storesCount,
     ] = await Promise.all([
-      db.automatedOrder.aggregate({
-        where: { store: { userId }, status: "DELIVERED" },
-        _sum: { profit: true },
+      db.product.count({ where: { workspaceId: wId } }),
+      db.product.count({ where: { workspaceId: wId, status: "ACTIVE" } }),
+      db.storeOrder.count({ where: { workspaceId: wId } }),
+      db.storeOrder.count({ where: { workspaceId: wId, status: "NEW" } }),
+      db.storeOrder.aggregate({
+        where: { workspaceId: wId },
+        _sum: { totalAmount: true },
       }),
-      db.product.count({ where: { store: { userId }, status: "ACTIVE" } }),
-      db.automatedOrder.count({ where: { store: { userId }, createdAt: { gte: startOfToday } } }),
-      db.watcherTask.count({ where: { product: { store: { userId } }, status: "ACTIVE" } }),
-      db.watcherTask.count({ where: { product: { store: { userId } }, status: "PAUSED" } }),
-      db.watcherTask.count({ where: { product: { store: { userId } }, status: "ERROR" } }),
-      db.store.findMany({
-        where: { userId },
-        include: { _count: { select: { products: true } } },
+      db.storeOrder.aggregate({
+        where: { workspaceId: wId },
+        _sum: { totalProfit: true },
       }),
-      db.activityLog.findMany({
-        where: { OR: [{ userId }, { userId: null }] },
+      db.storeOrder.findMany({
+        where: { workspaceId: wId },
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 5,
+        include: {
+          items: { include: { product: { select: { title: true } } } },
+          store: { select: { name: true } },
+        },
       }),
+      db.store.count({ where: { workspaceId: wId } }),
     ]);
 
     return success({
-      stats: {
-        totalProfit: Number(totalProfitResult._sum.profit || 0),
-        activeListings,
-        ordersToday,
-        ordersTrend: ordersToday > 0 ? 100 : 0,
-        listingsTrend: 0,
-        watcherStats: { active: watcherActive, paused: watcherPaused, error: watcherError },
-      },
-      stores: stores.map((s) => ({
-        storeId: s.id,
-        storeName: s.name,
-        storeType: s.storeType,
-        isActive: s.isActive,
-        lastSyncAt: s.lastSyncAt,
-        productCount: s._count.products,
-      })),
-      activities: activities.map((a) => ({
-        id: a.id,
-        action: a.action,
-        details: a.details || "",
-        severity: a.severity,
-        createdAt: a.createdAt,
-      })),
+      totalProducts,
+      activeProducts,
+      totalOrders,
+      newOrders,
+      revenue: revenueAgg._sum.totalAmount ?? 0,
+      profit: profitAgg._sum.totalProfit ?? 0,
+      recentOrders,
+      storesCount,
     });
   } catch (err) {
     return handleApiError(err);

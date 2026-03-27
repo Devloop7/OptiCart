@@ -18,10 +18,9 @@ export const config = {
     "/dashboard/:path*",
     "/products/:path*",
     "/orders/:path*",
-    "/stores/:path*",
-    "/watcher/:path*",
-    "/analytics/:path*",
-    "/settings/:path*",
+    "/automations/:path*",
     "/ai/:path*",
+    "/billing/:path*",
+    "/settings/:path*",
   ],
 };

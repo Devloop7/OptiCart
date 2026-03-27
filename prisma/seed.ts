@@ -1,271 +1,273 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashSync } from "bcryptjs";
+import { config } from "dotenv";
+import path from "path";
+
+config({ path: path.join(__dirname, "..", ".env.local") });
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const prisma = new PrismaClient({ adapter });
+const db = new PrismaClient({ adapter });
 
 async function main() {
   console.log("Seeding database...");
 
-  // Create test user
-  const user = await prisma.user.upsert({
+  // Plans
+  const plans = await Promise.all([
+    db.plan.upsert({
+      where: { tier: "FREE" },
+      update: {},
+      create: { tier: "FREE", name: "Free", monthlyPrice: 0, maxProducts: 25, maxOrdersMonth: 10, maxStores: 1, maxAiRequests: 5, automationFreq: 360, features: ["Basic product import", "Manual order fulfillment"] },
+    }),
+    db.plan.upsert({
+      where: { tier: "STARTER" },
+      update: {},
+      create: { tier: "STARTER", name: "Starter", monthlyPrice: 29, maxProducts: 200, maxOrdersMonth: 100, maxStores: 2, maxAiRequests: 50, automationFreq: 60, features: ["AliExpress import", "Stock/price sync", "Basic AI research"] },
+    }),
+    db.plan.upsert({
+      where: { tier: "PRO" },
+      update: {},
+      create: { tier: "PRO", name: "Pro", monthlyPrice: 79, maxProducts: 1000, maxOrdersMonth: 500, maxStores: 5, maxAiRequests: 200, automationFreq: 15, features: ["Everything in Starter", "Fast automations", "Advanced AI", "Priority support"] },
+    }),
+    db.plan.upsert({
+      where: { tier: "SCALE" },
+      update: {},
+      create: { tier: "SCALE", name: "Scale", monthlyPrice: 199, maxProducts: 10000, maxOrdersMonth: 5000, maxStores: 20, maxAiRequests: 1000, automationFreq: 5, features: ["Everything in Pro", "Unlimited stores", "API access", "Dedicated support"] },
+    }),
+  ]);
+
+  // Demo user
+  const hashedPassword = hashSync("Demo1234!", 12);
+  const user = await db.user.upsert({
     where: { email: "demo@opticart.app" },
     update: {},
     create: {
       email: "demo@opticart.app",
       name: "Demo User",
-      hashedPassword: hashSync("Demo1234!", 10),
-      subscriptionTier: "PRO",
-      maxStores: 10,
-      maxProducts: 10000,
+      hashedPassword,
+      emailVerified: new Date(),
     },
   });
-  console.log(`User created: ${user.email} (id: ${user.id})`);
 
-  // Create stores
-  const shopify = await prisma.store.upsert({
-    where: { id: "store-shopify-demo" },
-    update: {},
-    create: {
-      id: "store-shopify-demo",
-      userId: user.id,
+  // Workspace
+  const workspace = await db.workspace.create({
+    data: {
+      name: "Demo Store",
+      slug: "demo-store",
+      currency: "USD",
+      timezone: "America/New_York",
+    },
+  });
+
+  // Membership (owner)
+  await db.membership.create({
+    data: { userId: user.id, workspaceId: workspace.id, role: "OWNER" },
+  });
+
+  // Subscription (Starter plan)
+  await db.subscription.create({
+    data: {
+      workspaceId: workspace.id,
+      planId: plans[1].id,
+      status: "ACTIVE",
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
+    },
+  });
+
+  // Stores
+  const shopifyStore = await db.store.create({
+    data: {
+      workspaceId: workspace.id,
       name: "My Shopify Store",
-      storeType: "SHOPIFY",
-      domain: "my-shopify-store.myshopify.com",
+      platform: "SHOPIFY",
+      domain: "myshop.myshopify.com",
       isActive: true,
-      lastSyncAt: new Date(),
     },
   });
 
-  const ebay = await prisma.store.upsert({
-    where: { id: "store-ebay-demo" },
-    update: {},
-    create: {
-      id: "store-ebay-demo",
-      userId: user.id,
-      name: "eBay Dropship",
-      storeType: "EBAY",
-      domain: "ebay.com/usr/opticart-demo",
-      isActive: true,
-      lastSyncAt: new Date(Date.now() - 3600000),
-    },
-  });
-
-  const woo = await prisma.store.upsert({
-    where: { id: "store-woo-demo" },
-    update: {},
-    create: {
-      id: "store-woo-demo",
-      userId: user.id,
-      name: "WooCommerce Site",
-      storeType: "WOOCOMMERCE",
-      domain: "shop.example.com",
-      isActive: true,
-      lastSyncAt: new Date(Date.now() - 7200000),
-    },
-  });
-  console.log("Stores created: Shopify, eBay, WooCommerce");
-
-  // Create suppliers
-  const aliexpress = await prisma.supplier.upsert({
-    where: { id: "supplier-ali-demo" },
-    update: {},
-    create: {
-      id: "supplier-ali-demo",
+  // AliExpress supplier
+  const supplier = await db.workspaceSupplier.create({
+    data: {
+      workspaceId: workspace.id,
       platform: "ALIEXPRESS",
-      name: "AliExpress Top Seller",
-      sourceUrl: "https://aliexpress.com/store/12345",
+      name: "AliExpress",
+      isActive: true,
     },
   });
 
-  const cj = await prisma.supplier.upsert({
-    where: { id: "supplier-cj-demo" },
-    update: {},
-    create: {
-      id: "supplier-cj-demo",
-      platform: "CJ_DROPSHIPPING",
-      name: "CJ Dropshipping",
-      sourceUrl: "https://cjdropshipping.com",
+  // Default pricing rule
+  await db.pricingRule.create({
+    data: {
+      workspaceId: workspace.id,
+      name: "Default 2.5x Markup",
+      multiplier: 2.5,
+      fixedAddon: 0,
+      minMarginPct: 25,
+      isDefault: true,
     },
   });
-  console.log("Suppliers created: AliExpress, CJ Dropshipping");
 
-  // Create products
-  const products = [
-    { id: "prod-001", storeId: shopify.id, supplierId: aliexpress.id, title: "Wireless Bluetooth Earbuds Pro", supplierPrice: 8.50, sellingPrice: 29.99, stock: 450, status: "ACTIVE" as const },
-    { id: "prod-002", storeId: shopify.id, supplierId: aliexpress.id, title: "LED Ring Light 10 inch", supplierPrice: 12.00, sellingPrice: 39.99, stock: 320, status: "ACTIVE" as const },
-    { id: "prod-003", storeId: shopify.id, supplierId: cj.id, title: "Phone Holder Car Mount", supplierPrice: 3.20, sellingPrice: 14.99, stock: 890, status: "ACTIVE" as const },
-    { id: "prod-004", storeId: shopify.id, supplierId: aliexpress.id, title: "Portable Blender USB", supplierPrice: 15.00, sellingPrice: 44.99, stock: 200, status: "ACTIVE" as const },
-    { id: "prod-005", storeId: ebay.id, supplierId: aliexpress.id, title: "Smart Watch Fitness Tracker", supplierPrice: 18.50, sellingPrice: 59.99, stock: 175, status: "ACTIVE" as const },
-    { id: "prod-006", storeId: ebay.id, supplierId: cj.id, title: "Magnetic Phone Case iPhone 15", supplierPrice: 4.80, sellingPrice: 19.99, stock: 600, status: "ACTIVE" as const },
-    { id: "prod-007", storeId: ebay.id, supplierId: aliexpress.id, title: "Mini Projector HD 1080p", supplierPrice: 45.00, sellingPrice: 129.99, stock: 85, status: "ACTIVE" as const },
-    { id: "prod-008", storeId: woo.id, supplierId: cj.id, title: "Yoga Mat Non-Slip", supplierPrice: 7.50, sellingPrice: 24.99, stock: 340, status: "ACTIVE" as const },
-    { id: "prod-009", storeId: woo.id, supplierId: aliexpress.id, title: "Desk Organizer Bamboo", supplierPrice: 11.00, sellingPrice: 34.99, stock: 210, status: "ACTIVE" as const },
-    { id: "prod-010", storeId: shopify.id, supplierId: aliexpress.id, title: "USB-C Hub 7-in-1", supplierPrice: 9.80, sellingPrice: 32.99, stock: 0, status: "OUT_OF_STOCK" as const },
-    { id: "prod-011", storeId: ebay.id, supplierId: cj.id, title: "Sunset Lamp Projector", supplierPrice: 6.50, sellingPrice: 22.99, stock: 520, status: "ACTIVE" as const },
-    { id: "prod-012", storeId: woo.id, supplierId: aliexpress.id, title: "Electric Toothbrush Sonic", supplierPrice: 8.00, sellingPrice: 27.99, stock: 410, status: "ACTIVE" as const },
-  ];
-
-  for (const p of products) {
-    await prisma.product.upsert({
-      where: { id: p.id },
-      update: {},
-      create: {
-        id: p.id,
-        storeId: p.storeId,
-        supplierId: p.supplierId,
-        title: p.title,
-        supplierPrice: p.supplierPrice,
-        sellingPrice: p.sellingPrice,
-        supplierStock: p.stock,
-        status: p.status,
-        autoSync: true,
-        lastCheckedAt: new Date(Date.now() - Math.random() * 3600000),
-      },
-    });
-  }
-  console.log(`${products.length} products created`);
-
-  // Create watcher tasks for active products
-  for (const p of products.filter(p => p.status === "ACTIVE")) {
-    await prisma.watcherTask.upsert({
-      where: { id: `watcher-${p.id}` },
-      update: {},
-      create: {
-        id: `watcher-${p.id}`,
-        productId: p.id,
-        status: Math.random() > 0.15 ? "ACTIVE" : (Math.random() > 0.5 ? "PAUSED" : "ERROR"),
-        intervalMinutes: 60,
-        lastRunAt: new Date(Date.now() - Math.random() * 3600000),
-        nextRunAt: new Date(Date.now() + Math.random() * 3600000),
-      },
-    });
-  }
-  console.log("Watcher tasks created");
-
-  // Create orders
-  const orderStatuses = ["PENDING", "APPROVED", "PLACED", "SHIPPED", "DELIVERED"] as const;
-  const orders = [
-    { productId: "prod-001", storeId: shopify.id, customer: "John Smith", status: "DELIVERED", qty: 2, daysAgo: 5 },
-    { productId: "prod-002", storeId: shopify.id, customer: "Sarah Johnson", status: "SHIPPED", qty: 1, daysAgo: 3 },
-    { productId: "prod-005", storeId: ebay.id, customer: "Mike Wilson", status: "PLACED", qty: 1, daysAgo: 1 },
-    { productId: "prod-003", storeId: shopify.id, customer: "Emily Davis", status: "DELIVERED", qty: 3, daysAgo: 7 },
-    { productId: "prod-007", storeId: ebay.id, customer: "Chris Brown", status: "APPROVED", qty: 1, daysAgo: 0 },
-    { productId: "prod-004", storeId: shopify.id, customer: "Lisa Anderson", status: "PENDING", qty: 1, daysAgo: 0 },
-    { productId: "prod-006", storeId: ebay.id, customer: "David Lee", status: "DELIVERED", qty: 2, daysAgo: 10 },
-    { productId: "prod-008", storeId: woo.id, customer: "Anna Martinez", status: "SHIPPED", qty: 1, daysAgo: 2 },
-    { productId: "prod-009", storeId: woo.id, customer: "James Taylor", status: "DELIVERED", qty: 1, daysAgo: 8 },
-    { productId: "prod-011", storeId: ebay.id, customer: "Rachel Green", status: "PLACED", qty: 2, daysAgo: 1 },
-    { productId: "prod-012", storeId: woo.id, customer: "Tom White", status: "PENDING", qty: 1, daysAgo: 0 },
-    { productId: "prod-001", storeId: shopify.id, customer: "Nina Patel", status: "DELIVERED", qty: 1, daysAgo: 12 },
-  ];
-
-  for (let i = 0; i < orders.length; i++) {
-    const o = orders[i];
-    const product = products.find(p => p.id === o.productId)!;
-    const supplierCost = product.supplierPrice * o.qty;
-    const sellingTotal = product.sellingPrice * o.qty;
-    const profit = sellingTotal - supplierCost;
-    const createdAt = new Date(Date.now() - o.daysAgo * 86400000);
-
-    await prisma.automatedOrder.upsert({
-      where: { id: `order-${i + 1}` },
-      update: {},
-      create: {
-        id: `order-${i + 1}`,
-        storeId: o.storeId,
-        productId: o.productId,
-        status: o.status as any,
-        quantity: o.qty,
-        customerName: o.customer,
-        customerAddress: { line1: "123 Main St", city: "New York", state: "NY", zip: "10001", country: "US" },
-        supplierCost,
-        sellingPrice: sellingTotal,
-        profit,
-        priceAtOrder: product.supplierPrice,
-        priceAtLastCheck: product.supplierPrice,
-        placedAt: ["PLACED", "SHIPPED", "DELIVERED"].includes(o.status) ? createdAt : null,
-        shippedAt: ["SHIPPED", "DELIVERED"].includes(o.status) ? new Date(createdAt.getTime() + 86400000) : null,
-        deliveredAt: o.status === "DELIVERED" ? new Date(createdAt.getTime() + 4 * 86400000) : null,
-        createdAt,
-      },
-    });
-  }
-  console.log(`${orders.length} orders created`);
-
-  // Create price history
-  const priceChanges = [
-    { productId: "prod-001", oldPrice: 9.50, newPrice: 8.50, hoursAgo: 2 },
-    { productId: "prod-002", oldPrice: 14.00, newPrice: 12.00, hoursAgo: 6 },
-    { productId: "prod-005", oldPrice: 20.00, newPrice: 18.50, hoursAgo: 12 },
-    { productId: "prod-007", oldPrice: 42.00, newPrice: 45.00, hoursAgo: 24 },
-    { productId: "prod-003", oldPrice: 3.50, newPrice: 3.20, hoursAgo: 48 },
-  ];
-
-  for (let i = 0; i < priceChanges.length; i++) {
-    const pc = priceChanges[i];
-    await prisma.priceHistory.upsert({
-      where: { id: `ph-${i + 1}` },
-      update: {},
-      create: {
-        id: `ph-${i + 1}`,
-        productId: pc.productId,
-        oldPrice: pc.oldPrice,
-        newPrice: pc.newPrice,
-        oldStock: 100 + Math.floor(Math.random() * 500),
-        newStock: 100 + Math.floor(Math.random() * 500),
-        detectedAt: new Date(Date.now() - pc.hoursAgo * 3600000),
-      },
-    });
-  }
-  console.log("Price history created");
-
-  // Create activity logs
-  const activities = [
-    { action: "PRICE_CHANGE", details: '{"product":"Wireless Bluetooth Earbuds Pro","from":"$9.50","to":"$8.50"}', severity: "warning", hoursAgo: 0.03 },
-    { action: "AUTO_ORDER", details: '{"orderId":"order-6","supplier":"AliExpress","product":"Portable Blender USB"}', severity: "info", hoursAgo: 0.08 },
-    { action: "STORE_SYNC", details: '{"store":"My Shopify Store","products":5,"updated":2}', severity: "info", hoursAgo: 1 },
-    { action: "ORDER_TRANSITION", details: '{"orderId":"order-2","from":"PLACED","to":"SHIPPED","product":"LED Ring Light"}', severity: "info", hoursAgo: 2 },
-    { action: "WATCHER_ERROR", details: '{"product":"USB-C Hub 7-in-1","error":"Product page returned 404"}', severity: "error", hoursAgo: 3 },
-    { action: "PRICE_CHANGE", details: '{"product":"Mini Projector HD 1080p","from":"$42.00","to":"$45.00"}', severity: "warning", hoursAgo: 5 },
-    { action: "NEW_PRODUCT", details: '{"product":"Electric Toothbrush Sonic","store":"WooCommerce Site"}', severity: "info", hoursAgo: 8 },
-    { action: "AUTO_ORDER", details: '{"orderId":"order-10","supplier":"CJ Dropshipping","product":"Sunset Lamp Projector"}', severity: "info", hoursAgo: 12 },
-  ];
-
-  for (let i = 0; i < activities.length; i++) {
-    const a = activities[i];
-    await prisma.activityLog.create({
-      data: {
-        userId: user.id,
-        action: a.action,
-        details: a.details,
-        severity: a.severity,
-        createdAt: new Date(Date.now() - a.hoursAgo * 3600000),
-      },
-    });
-  }
-  console.log("Activity logs created");
-
-  // Create system lock (unlocked by default)
-  await prisma.systemLock.upsert({
-    where: { id: "main-lock" },
-    update: {},
-    create: {
-      id: "main-lock",
-      isLocked: false,
+  // Sample supplier products (AliExpress)
+  const sp1 = await db.supplierProduct.create({
+    data: {
+      supplierId: supplier.id,
+      externalId: "1005006123456789",
+      sourceUrl: "https://www.aliexpress.com/item/1005006123456789.html",
+      title: "Wireless Bluetooth Earbuds TWS 5.3 Noise Cancelling",
+      description: "High quality wireless earbuds with active noise cancellation and 30h battery life.",
+      images: ["https://ae-pic-a1.aliexpress-media.com/kf/S1234.jpg"],
+      rating: 4.7,
+      totalOrders: 15420,
+      shippingOptions: [
+        { carrier: "AliExpress Standard", cost: 0, days: "15-25" },
+        { carrier: "ePacket", cost: 2.50, days: "10-18" },
+      ],
     },
   });
-  console.log("System lock initialized");
 
-  console.log("\nSeed complete! Login credentials:");
-  console.log("  Email: demo@opticart.app");
-  console.log("  Password: Demo1234!");
+  const sv1a = await db.supplierVariant.create({ data: { supplierProductId: sp1.id, externalId: "v1", name: "Black", price: 8.99, stock: 5000, sku: "TWS-BLK" } });
+  const sv1b = await db.supplierVariant.create({ data: { supplierProductId: sp1.id, externalId: "v2", name: "White", price: 8.99, stock: 3200, sku: "TWS-WHT" } });
+  const sv1c = await db.supplierVariant.create({ data: { supplierProductId: sp1.id, externalId: "v3", name: "Blue", price: 9.49, stock: 1800, sku: "TWS-BLU" } });
+
+  const sp2 = await db.supplierProduct.create({
+    data: {
+      supplierId: supplier.id,
+      externalId: "1005007987654321",
+      sourceUrl: "https://www.aliexpress.com/item/1005007987654321.html",
+      title: "LED Ring Light 10\" with Tripod Stand for TikTok Live Stream",
+      description: "Professional ring light with adjustable brightness and color temperature.",
+      images: ["https://ae-pic-a1.aliexpress-media.com/kf/S5678.jpg"],
+      rating: 4.5,
+      totalOrders: 8700,
+      shippingOptions: [{ carrier: "AliExpress Standard", cost: 0, days: "20-30" }],
+    },
+  });
+
+  const sv2a = await db.supplierVariant.create({ data: { supplierProductId: sp2.id, externalId: "v1", name: "10 inch", price: 12.50, stock: 2400, sku: "RING-10" } });
+  const sv2b = await db.supplierVariant.create({ data: { supplierProductId: sp2.id, externalId: "v2", name: "12 inch + Phone Holder", price: 16.80, stock: 1100, sku: "RING-12P" } });
+
+  // Products (imported from supplier)
+  const product1 = await db.product.create({
+    data: {
+      workspaceId: workspace.id,
+      supplierProductId: sp1.id,
+      title: "Premium Wireless Earbuds - Noise Cancelling",
+      description: "Crystal clear sound with ANC. 30-hour battery. Perfect for everyday use.",
+      images: ["https://ae-pic-a1.aliexpress-media.com/kf/S1234.jpg"],
+      tags: ["electronics", "audio", "earbuds"],
+      category: "Electronics",
+      status: "ACTIVE",
+    },
+  });
+
+  const pv1a = await db.productVariant.create({ data: { productId: product1.id, supplierVariantId: sv1a.id, name: "Black", sku: "EARBUDS-BLK", supplierCost: 8.99, retailPrice: 24.99, stock: 5000 } });
+  const pv1b = await db.productVariant.create({ data: { productId: product1.id, supplierVariantId: sv1b.id, name: "White", sku: "EARBUDS-WHT", supplierCost: 8.99, retailPrice: 24.99, stock: 3200 } });
+  await db.productVariant.create({ data: { productId: product1.id, supplierVariantId: sv1c.id, name: "Blue", sku: "EARBUDS-BLU", supplierCost: 9.49, retailPrice: 26.99, stock: 1800 } });
+
+  const product2 = await db.product.create({
+    data: {
+      workspaceId: workspace.id,
+      supplierProductId: sp2.id,
+      title: "Ring Light Kit - Perfect for Content Creators",
+      description: "10-inch LED ring light with adjustable tripod. 3 color modes.",
+      images: ["https://ae-pic-a1.aliexpress-media.com/kf/S5678.jpg"],
+      tags: ["photography", "lighting", "content-creation"],
+      category: "Photography",
+      status: "ACTIVE",
+    },
+  });
+
+  await db.productVariant.create({ data: { productId: product2.id, supplierVariantId: sv2a.id, name: "10 inch", sku: "RING-10", supplierCost: 12.50, retailPrice: 34.99, stock: 2400 } });
+  await db.productVariant.create({ data: { productId: product2.id, supplierVariantId: sv2b.id, name: "12 inch + Phone Holder", sku: "RING-12P", supplierCost: 16.80, retailPrice: 44.99, stock: 1100 } });
+
+  // Store links
+  await db.productStoreLink.create({ data: { productId: product1.id, storeId: shopifyStore.id, isPushed: true, externalProductId: "shopify_123" } });
+  await db.productStoreLink.create({ data: { productId: product2.id, storeId: shopifyStore.id, isPushed: true, externalProductId: "shopify_456" } });
+
+  // Sample orders
+  await db.storeOrder.create({
+    data: {
+      workspaceId: workspace.id,
+      storeId: shopifyStore.id,
+      externalOrderId: "SHOP-1001",
+      status: "NEW",
+      customerName: "John Smith",
+      customerEmail: "john@example.com",
+      shippingAddress: { street: "123 Main St", city: "New York", state: "NY", zip: "10001", country: "US" },
+      totalAmount: 24.99,
+      totalProfit: 16.00,
+      items: {
+        create: { productId: product1.id, variantId: pv1a.id, quantity: 1, supplierCost: 8.99, sellingPrice: 24.99, profit: 16.00 },
+      },
+    },
+  });
+
+  await db.storeOrder.create({
+    data: {
+      workspaceId: workspace.id,
+      storeId: shopifyStore.id,
+      externalOrderId: "SHOP-1002",
+      status: "SHIPPED",
+      customerName: "Sarah Johnson",
+      customerEmail: "sarah@example.com",
+      shippingAddress: { street: "456 Oak Ave", city: "Los Angeles", state: "CA", zip: "90001", country: "US" },
+      totalAmount: 24.99,
+      totalProfit: 16.00,
+      items: {
+        create: { productId: product1.id, variantId: pv1b.id, quantity: 1, supplierCost: 8.99, sellingPrice: 24.99, profit: 16.00 },
+      },
+      supplierOrders: {
+        create: {
+          supplierOrderId: "AE-8001234567",
+          trackingNumber: "LX123456789CN",
+          status: "SHIPPED",
+          placedAt: new Date(Date.now() - 5 * 86400000),
+          shippedAt: new Date(Date.now() - 2 * 86400000),
+          cost: 8.99,
+        },
+      },
+    },
+  });
+
+  // Automation rules
+  await db.automationRule.create({
+    data: {
+      workspaceId: workspace.id,
+      type: "STOCK_SYNC",
+      name: "Pause when out of stock",
+      status: "ACTIVE",
+      config: { minStock: 5, action: "pause_product" },
+      frequencyMinutes: 60,
+    },
+  });
+
+  await db.automationRule.create({
+    data: {
+      workspaceId: workspace.id,
+      type: "PRICE_SYNC",
+      name: "Auto-update retail on supplier price change",
+      status: "ACTIVE",
+      config: { applyPricingRule: true, notifyOnChange: true },
+      frequencyMinutes: 120,
+    },
+  });
+
+  // Usage record
+  const month = new Date().toISOString().slice(0, 7);
+  await db.usageRecord.create({
+    data: { workspaceId: workspace.id, month, products: 2, orders: 2, aiRequests: 0 },
+  });
+
+  console.log("Seed complete!");
+  console.log("  User: demo@opticart.app / Demo1234!");
+  console.log(`  Workspace: ${workspace.name} (${workspace.slug})`);
+  console.log(`  Store: ${shopifyStore.name}`);
+  console.log("  Products: 2 with variants");
+  console.log("  Orders: 2");
+  console.log("  Plans: 4 tiers");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => db.$disconnect());

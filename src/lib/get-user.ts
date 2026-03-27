@@ -13,10 +13,6 @@ export async function getCurrentUser() {
       name: true,
       email: true,
       image: true,
-      subscriptionTier: true,
-      maxStores: true,
-      maxProducts: true,
-      settings: true,
       createdAt: true,
     },
   });
@@ -26,4 +22,29 @@ export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) throw new Error("UNAUTHORIZED");
   return user;
+}
+
+export async function getWorkspace() {
+  const user = await requireUser();
+
+  const membership = await db.membership.findFirst({
+    where: { userId: user.id },
+    include: {
+      workspace: {
+        include: {
+          subscription: { include: { plan: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!membership) throw new Error("NO_WORKSPACE");
+
+  return {
+    user,
+    membership,
+    workspace: membership.workspace,
+    plan: membership.workspace.subscription?.plan ?? null,
+  };
 }

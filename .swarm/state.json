@@ -1,0 +1,8 @@
+{
+  "id": "swarm-1774570234776-gs3dnd",
+  "topology": "hierarchical",
+  "maxAgents": 8,
+  "strategy": "specialized",
+  "initializedAt": "2026-03-27T00:10:34.776Z",
+  "status": "ready"
+}

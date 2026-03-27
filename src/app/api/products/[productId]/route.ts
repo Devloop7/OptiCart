@@ -1,32 +1,127 @@
 import { NextRequest } from "next/server";
 import { success, error, handleApiError } from "@/lib/api-response";
-import { updateProductSchema } from "@/lib/validators/product";
 import { db } from "@/lib/db";
+import { getWorkspace } from "@/lib/get-user";
+import { z } from "zod/v4";
 
 export const dynamic = "force-dynamic";
 
-type RouteContext = { params: Promise<{ productId: string }> };
+type Params = { params: Promise<{ productId: string }> };
 
-export async function GET(_req: NextRequest, ctx: RouteContext) {
+const updateProductSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  category: z.string().optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"]).optional(),
+  stockSyncEnabled: z.boolean().optional(),
+  priceSyncEnabled: z.boolean().optional(),
+  variants: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        name: z.string().min(1),
+        sku: z.string().optional(),
+        supplierCost: z.number().min(0),
+        retailPrice: z.number().min(0),
+        stock: z.number().int().min(0).optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
+    .optional(),
+});
+
+async function findProduct(workspaceId: string, productId: string) {
+  return db.product.findFirst({
+    where: { id: productId, workspaceId },
+  });
+}
+
+export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    const { productId } = await ctx.params;
+    const { workspace } = await getWorkspace();
+    const { productId } = await params;
 
-    const product = await db.product.findUnique({
-      where: { id: productId },
+    const product = await db.product.findFirst({
+      where: { id: productId, workspaceId: workspace.id },
       include: {
-        store: { select: { id: true, name: true, storeType: true } },
-        supplier: { select: { id: true, name: true, platform: true } },
-        priceHistory: {
-          orderBy: { detectedAt: "desc" },
-          take: 50,
+        variants: true,
+        storeLinks: { include: { store: { select: { id: true, name: true } } } },
+        supplierProduct: {
+          include: { variants: true },
         },
-        watcherTasks: true,
       },
     });
 
-    if (!product) {
-      return error("Product not found", 404);
-    }
+    if (!product) return error("Product not found", 404);
+    return success(product);
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: Params) {
+  try {
+    const { workspace } = await getWorkspace();
+    const { productId } = await params;
+
+    const existing = await findProduct(workspace.id, productId);
+    if (!existing) return error("Product not found", 404);
+
+    const body = await req.json();
+    const data = updateProductSchema.parse(body);
+
+    const { variants, ...productFields } = data;
+
+    const product = await db.$transaction(async (tx) => {
+      if (variants) {
+        const existingVariantIds = variants
+          .filter((v) => v.id)
+          .map((v) => v.id as string);
+
+        // Delete variants not in the update list
+        await tx.productVariant.deleteMany({
+          where: {
+            productId,
+            id: { notIn: existingVariantIds },
+          },
+        });
+
+        for (const v of variants) {
+          if (v.id) {
+            await tx.productVariant.update({
+              where: { id: v.id },
+              data: {
+                name: v.name,
+                sku: v.sku,
+                supplierCost: v.supplierCost,
+                retailPrice: v.retailPrice,
+                stock: v.stock,
+                isActive: v.isActive,
+              },
+            });
+          } else {
+            await tx.productVariant.create({
+              data: {
+                productId,
+                name: v.name,
+                sku: v.sku,
+                supplierCost: v.supplierCost,
+                retailPrice: v.retailPrice,
+                stock: v.stock ?? 0,
+              },
+            });
+          }
+        }
+      }
+
+      return tx.product.update({
+        where: { id: productId },
+        data: productFields,
+        include: { variants: true },
+      });
+    });
 
     return success(product);
   } catch (err) {
@@ -34,48 +129,15 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   }
 }
 
-export async function PATCH(req: NextRequest, ctx: RouteContext) {
+export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    const { productId } = await ctx.params;
-    const body = updateProductSchema.parse(await req.json());
+    const { workspace } = await getWorkspace();
+    const { productId } = await params;
 
-    const existing = await db.product.findUnique({
-      where: { id: productId },
-    });
-    if (!existing) {
-      return error("Product not found", 404);
-    }
-
-    const { storeId, supplierId, variants, ...updateData } = body;
-    const product = await db.product.update({
-      where: { id: productId },
-      data: {
-        ...updateData,
-        ...(variants !== undefined && { variants: variants as Parameters<typeof db.product.update>[0]["data"]["variants"] }),
-        ...(storeId && { store: { connect: { id: storeId } } }),
-        ...(supplierId && { supplier: { connect: { id: supplierId } } }),
-      },
-    });
-
-    return success(product);
-  } catch (err) {
-    return handleApiError(err);
-  }
-}
-
-export async function DELETE(_req: NextRequest, ctx: RouteContext) {
-  try {
-    const { productId } = await ctx.params;
-
-    const existing = await db.product.findUnique({
-      where: { id: productId },
-    });
-    if (!existing) {
-      return error("Product not found", 404);
-    }
+    const existing = await findProduct(workspace.id, productId);
+    if (!existing) return error("Product not found", 404);
 
     await db.product.delete({ where: { id: productId } });
-
     return success({ deleted: true });
   } catch (err) {
     return handleApiError(err);
