@@ -80,7 +80,7 @@ const FAQS: FAQ[] = [
     category: "Integrations",
     question: "Which platforms does OptiCart support?",
     answer:
-      "Currently, OptiCart fully supports Shopify with OAuth integration. WooCommerce, eBay, and TikTok Shop integrations are coming soon. For suppliers, we support AliExpress with CJ Dropshipping, Spocket, Zendrop, and DSers planned.",
+      "Currently, OptiCart fully supports Shopify with OAuth integration. WooCommerce, eBay, and TikTok Shop store integrations are coming soon. For suppliers, we support AliExpress with CJ Dropshipping and Alibaba/1688 coming next.",
   },
   {
     id: "8",

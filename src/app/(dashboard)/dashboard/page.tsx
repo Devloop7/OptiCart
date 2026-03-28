@@ -371,7 +371,7 @@ export default function DashboardPage() {
   const quickActions = [
     { label: "Import Products", href: "/products/discover", icon: Search, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30" },
     { label: "View Orders", href: "/orders", icon: ShoppingCart, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
-    { label: "Automations", href: "/watcher", icon: Zap, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30" },
+    { label: "Automations", href: "/automations", icon: Zap, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30" },
     { label: "AI Research", href: "/ai/winning-products", icon: Brain, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-950/30" },
   ];
 
