@@ -5,8 +5,12 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Opticart — Dropshipping Automation Platform",
-  description: "AI-native dropshipping automation: sourcing, listing, monitoring, and auto-ordering.",
+  title: "OptiCart — Dropshipping Automation Platform",
+  description: "Automate your dropshipping business. Source products, connect stores, fulfill orders — all from one dashboard.",
+  icons: {
+    icon: "/logo-icon.png",
+    apple: "/logo-icon.png",
+  },
 };
 
 export default function RootLayout({

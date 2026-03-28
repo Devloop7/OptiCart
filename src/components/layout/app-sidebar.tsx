@@ -51,12 +51,15 @@ export function AppSidebar() {
       <div className="flex h-16 items-center justify-between border-b border-zinc-200 px-4 dark:border-zinc-800">
         {!collapsed && (
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-black text-white">
-              O
-            </div>
+            <img src="/logo-icon.png" alt="OptiCart" className="h-8 w-8 rounded-lg" />
             <span className="text-lg font-bold text-zinc-900 dark:text-white">
-              Opti<span className="text-indigo-500">Cart</span>
+              Opti<span className="text-purple-600">Cart</span>
             </span>
+          </Link>
+        )}
+        {collapsed && (
+          <Link href="/dashboard">
+            <img src="/logo-icon.png" alt="OptiCart" className="h-8 w-8 rounded-lg" />
           </Link>
         )}
         <button

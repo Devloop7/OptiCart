@@ -65,8 +65,9 @@ export default function RegisterPage() {
         <div className="pointer-events-none absolute bottom-20 right-10 h-[400px] w-[400px] rounded-full bg-indigo-600/15 blur-3xl" />
 
         <div className="relative z-10 flex flex-col justify-between p-12">
-          <Link href="/" className="text-2xl font-bold text-white">
-            Opti<span className="text-indigo-400">Cart</span>
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/logo-icon.png" alt="OptiCart" className="h-9 w-9 rounded-lg" />
+            <span className="text-2xl font-bold text-white">Opti<span className="text-purple-400">Cart</span></span>
           </Link>
 
           <div className="max-w-md">
@@ -118,8 +119,9 @@ export default function RegisterPage() {
       <div className="flex w-full items-center justify-center px-6 lg:w-1/2 bg-white dark:bg-zinc-950">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
-            <Link href="/" className="text-2xl font-bold">
-              Opti<span className="text-indigo-500">Cart</span>
+            <Link href="/" className="flex items-center gap-2">
+              <img src="/logo-icon.png" alt="OptiCart" className="h-8 w-8 rounded-lg" />
+              <span className="text-2xl font-bold">Opti<span className="text-purple-600">Cart</span></span>
             </Link>
           </div>
 

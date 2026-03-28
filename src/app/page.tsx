@@ -189,8 +189,9 @@ export default function LandingPage() {
       {/* ── Navbar ────────────────────────────────────────────────── */}
       <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-gray-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-xl font-bold tracking-tight text-white">
-            Opti<span className="text-indigo-400">Cart</span>
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/logo-icon.png" alt="OptiCart" className="h-8 w-8 rounded-lg" />
+            <span className="text-xl font-bold tracking-tight text-white">Opti<span className="text-purple-400">Cart</span></span>
           </Link>
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-gray-300 hover:text-white transition">
@@ -528,8 +529,9 @@ export default function LandingPage() {
           <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-5">
             {/* brand */}
             <div className="lg:col-span-1">
-              <Link href="/" className="text-xl font-bold tracking-tight">
-                Opti<span className="text-indigo-600">Cart</span>
+              <Link href="/" className="flex items-center gap-2">
+                <img src="/logo-icon.png" alt="OptiCart" className="h-7 w-7 rounded-lg" />
+                <span className="text-xl font-bold tracking-tight">Opti<span className="text-purple-600">Cart</span></span>
               </Link>
               <p className="mt-3 text-sm leading-relaxed text-gray-500">
                 The all-in-one dropshipping automation platform for modern
