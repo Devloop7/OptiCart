@@ -211,10 +211,14 @@ function ProductCard({
   product,
   onImport,
   onSelect,
+  isFavorite,
+  onToggleFavorite,
 }: {
   product: SourcedProduct;
   onImport: (id: string) => void;
   onSelect: (product: SourcedProduct) => void;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
 }) {
   const retailPrice = (product.price * MARKUP).toFixed(2);
   const profitPerItem = (product.price * MARKUP - product.price).toFixed(2);
@@ -262,13 +266,26 @@ function ProductCard({
           )}
         </div>
 
-        {product.originalPrice && product.originalPrice > product.price && (
-          <div className="absolute top-2 right-2">
+        {/* Favorite heart + discount badge */}
+        <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(product.externalId); }}
+            className={`rounded-full p-1.5 backdrop-blur-sm transition-all ${
+              isFavorite
+                ? "bg-red-500/90 text-white"
+                : "bg-black/20 text-white/80 hover:bg-red-500/70 hover:text-white opacity-0 group-hover:opacity-100"
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
+              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {product.originalPrice && product.originalPrice > product.price && (
             <Badge className="bg-red-500 text-white border-0 text-[10px] px-1.5 py-0.5">
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </Badge>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Content */}
@@ -402,12 +419,32 @@ export default function DiscoverPage() {
   const [selectedProduct, setSelectedProduct] = useState<SourcedProduct | null>(null);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [showCategoryBrowser, setShowCategoryBrowser] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Advanced filters
   const [showFilters, setShowFilters] = useState(false);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState(0);
+
+  // Load favorites from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("opticart_favorites");
+      if (stored) setFavorites(new Set(JSON.parse(stored)));
+    } catch {}
+  }, []);
+
+  function toggleFavorite(productId: string) {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      localStorage.setItem("opticart_favorites", JSON.stringify([...next]));
+      return next;
+    });
+  }
 
   // Load categories from API
   useEffect(() => {
@@ -483,13 +520,14 @@ export default function DiscoverPage() {
 
   const hasActiveFilters = minPrice !== "" || maxPrice !== "" || minRating > 0;
 
-  // Apply client-side filters (price range and rating) on top of server results
+  // Apply client-side filters (price range, rating, favorites) on top of server results
   const allProducts = data ? sortProducts(data.products, sort) : [];
   const products = allProducts.filter((p) => {
     const price = Number(p.price);
     if (minPrice !== "" && price < Number(minPrice)) return false;
     if (maxPrice !== "" && price > Number(maxPrice)) return false;
     if (minRating > 0 && Number(p.rating) < minRating) return false;
+    if (showFavoritesOnly && !favorites.has(p.externalId)) return false;
     return true;
   });
 
@@ -540,6 +578,17 @@ export default function DiscoverPage() {
           />
         </div>
         <Button type="submit">Search</Button>
+        <Button
+          type="button"
+          variant={showFavoritesOnly ? "default" : "outline"}
+          size="icon"
+          onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+          title={showFavoritesOnly ? "Show all products" : `Show favorites (${favorites.size})`}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill={showFavoritesOnly ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.5}>
+            <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+          </svg>
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -786,6 +835,8 @@ export default function DiscoverPage() {
               product={product}
               onImport={handleImport}
               onSelect={setSelectedProduct}
+              isFavorite={favorites.has(product.externalId)}
+              onToggleFavorite={toggleFavorite}
             />
           ))}
         </div>

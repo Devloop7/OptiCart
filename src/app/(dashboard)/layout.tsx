@@ -1,14 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { NotificationDropdown } from "@/components/layout/notification-dropdown";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { CommandPalette } from "@/components/layout/command-palette";
-import { LogOut, Search } from "lucide-react";
+import { LogOut, Search, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -28,7 +28,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/products/import/csv": "CSV Import",
 };
 
-function Topbar() {
+function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
 
@@ -38,9 +38,13 @@ function Topbar() {
     : "U";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-6 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{title}</h2>
+    <header className="flex h-14 sm:h-16 items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex items-center gap-3">
+        {/* Mobile menu button */}
+        <button onClick={onMenuToggle} className="lg:hidden rounded-md p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <Menu className="h-5 w-5" />
+        </button>
+        <h2 className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-white">{title}</h2>
         {/* Global search — triggers command palette */}
         <button
           onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
@@ -71,12 +75,36 @@ function Topbar() {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden">
-      <AppSidebar />
+      {/* Desktop sidebar */}
+      <div className="hidden lg:block">
+        <AppSidebar />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
+          <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
+            <div className="relative">
+              <AppSidebar />
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute top-4 right-[-40px] rounded-full bg-white p-1.5 shadow-lg dark:bg-zinc-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto bg-zinc-50 p-6 dark:bg-zinc-900">
+        <Topbar onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} />
+        <main className="flex-1 overflow-y-auto bg-zinc-50 p-4 sm:p-6 dark:bg-zinc-900">
           {children}
         </main>
       </div>

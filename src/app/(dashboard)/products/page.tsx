@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Search, Upload, Play, Pause } from "lucide-react";
+import { Package, Search, Upload, Play, Pause, Globe, ArrowUpDown, FileSpreadsheet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -131,14 +131,39 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Products</h1>
-        <Link href="/products/import">
-          <Button>
-            <Upload className="mr-2 h-4 w-4" />
-            Import Product
-          </Button>
-        </Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Products</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">
+            {products.length > 0 ? `${products.length} product${products.length !== 1 ? "s" : ""} in your catalog` : "Import products to get started"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/products/discover">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Globe className="h-3.5 w-3.5" />
+              Discover
+            </Button>
+          </Link>
+          <Link href="/products/import/csv">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              CSV
+            </Button>
+          </Link>
+          <Link href="/products/compare">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              Compare
+            </Button>
+          </Link>
+          <Link href="/products/import">
+            <Button size="sm" className="gap-1.5">
+              <Upload className="h-3.5 w-3.5" />
+              Import
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
