@@ -288,8 +288,18 @@ export default function ImportPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sourceUrl: p.sourceUrl,
+            sourceUrl: p.sourceUrl || `https://www.aliexpress.com/item/${p.externalId}.html`,
             storeId: selectedStore,
+            title: p.title,
+            description: p.description,
+            images: p.images,
+            price: p.price,
+            variants: p.variants?.map((v) => ({
+              name: v.name,
+              price: v.price,
+              stock: v.stock,
+              sku: v.sku,
+            })),
           }),
         });
         const json = await res.json();
