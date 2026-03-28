@@ -27,8 +27,16 @@ export async function POST(req: NextRequest) {
     let verified = false;
 
     if (data.platform === "SHOPIFY" && data.accessToken) {
+      // Ensure domain ends with .myshopify.com for API calls
+      let apiDomain = domain;
+      if (!apiDomain.endsWith(".myshopify.com")) {
+        // Try to fix common issues
+        apiDomain = apiDomain.replace(/\.myshopify\.com.*$/, ".myshopify.com");
+      }
+
       try {
-        const res = await fetch(`https://${domain}/admin/api/2024-10/shop.json`, {
+        const apiUrl = `https://${apiDomain}/admin/api/2024-10/shop.json`;
+        const res = await fetch(apiUrl, {
           headers: {
             "X-Shopify-Access-Token": data.accessToken,
             "Content-Type": "application/json",
@@ -39,21 +47,32 @@ export async function POST(req: NextRequest) {
           const json = await res.json();
           shopInfo = json.shop;
           verified = true;
-          // Use the real shop name
           if (json.shop?.name) {
             data.name = json.shop.name;
           }
+          // Use the correct myshopify domain
+          if (json.shop?.myshopify_domain) {
+            domain = json.shop.myshopify_domain;
+          }
         } else {
           const text = await res.text();
+          if (res.status === 401 || res.status === 403) {
+            return error(
+              "Invalid access token. Make sure you copied the full token starting with 'shpat_' from your Shopify custom app.",
+              400
+            );
+          }
           return error(
-            res.status === 401
-              ? "Invalid access token. Please check your token and try again."
-              : `Shopify API error (${res.status}): ${text.slice(0, 100)}`,
+            `Shopify returned error ${res.status}. Check your store URL and token. URL tried: ${apiDomain}`,
             400
           );
         }
       } catch (err) {
-        return error("Could not connect to Shopify. Please check the store URL.", 400);
+        const message = err instanceof Error ? err.message : "Unknown error";
+        return error(
+          `Could not reach Shopify at ${apiDomain}. Check the store URL is correct. (${message})`,
+          400
+        );
       }
     }
 
