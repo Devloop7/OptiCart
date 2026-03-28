@@ -15,6 +15,15 @@ import {
   Target,
   ShoppingBag,
   Zap,
+  Cpu,
+  Shirt,
+  Home,
+  Sparkle,
+  Dumbbell,
+  PawPrint,
+  Baby,
+  Car,
+  LayoutGrid,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,15 +31,15 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 const NICHES = [
-  { id: "electronics", label: "Electronics & Gadgets", icon: "🔌", desc: "Phone accessories, smart home, wearables" },
-  { id: "fashion", label: "Fashion & Accessories", icon: "👗", desc: "Clothing, jewelry, bags, sunglasses" },
-  { id: "home", label: "Home & Garden", icon: "🏡", desc: "Decor, kitchen gadgets, organization" },
-  { id: "beauty", label: "Beauty & Health", icon: "💄", desc: "Skincare, makeup, wellness products" },
-  { id: "fitness", label: "Fitness & Sports", icon: "💪", desc: "Workout gear, yoga, outdoor equipment" },
-  { id: "pets", label: "Pet Supplies", icon: "🐾", desc: "Toys, accessories, grooming, food" },
-  { id: "baby", label: "Baby & Kids", icon: "🍼", desc: "Toys, clothing, nursery, strollers" },
-  { id: "automotive", label: "Automotive", icon: "🚗", desc: "Car accessories, tools, electronics" },
-  { id: "general", label: "General Store", icon: "🏪", desc: "Mixed niche, trending products" },
+  { id: "electronics", label: "Electronics & Gadgets", icon: Cpu, desc: "Phone accessories, smart home, wearables" },
+  { id: "fashion", label: "Fashion & Accessories", icon: Shirt, desc: "Clothing, jewelry, bags, sunglasses" },
+  { id: "home", label: "Home & Garden", icon: Home, desc: "Decor, kitchen gadgets, organization" },
+  { id: "beauty", label: "Beauty & Health", icon: Sparkle, desc: "Skincare, makeup, wellness products" },
+  { id: "fitness", label: "Fitness & Sports", icon: Dumbbell, desc: "Workout gear, yoga, outdoor equipment" },
+  { id: "pets", label: "Pet Supplies", icon: PawPrint, desc: "Toys, accessories, grooming, food" },
+  { id: "baby", label: "Baby & Kids", icon: Baby, desc: "Toys, clothing, nursery, strollers" },
+  { id: "automotive", label: "Automotive", icon: Car, desc: "Car accessories, tools, electronics" },
+  { id: "general", label: "General Store", icon: LayoutGrid, desc: "Mixed niche, trending products" },
 ];
 
 const STEPS = [
@@ -177,7 +186,7 @@ export default function OnboardingPage() {
                       : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600"
                   }`}
                 >
-                  <span className="text-2xl">{n.icon}</span>
+                  <n.icon className="h-6 w-6 text-indigo-500" />
                   <p className="mt-1 text-sm font-semibold">{n.label}</p>
                   <p className="mt-0.5 text-[10px] text-zinc-400">{n.desc}</p>
                 </button>

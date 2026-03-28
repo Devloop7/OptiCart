@@ -63,16 +63,25 @@ interface SearchResult {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const CATEGORY_META: Record<string, { icon: string; color: string; gradient: string }> = {
-  electronics: { icon: "🔌", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", gradient: "from-blue-500 to-indigo-500" },
-  fashion: { icon: "👗", color: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400", gradient: "from-pink-500 to-rose-500" },
-  home: { icon: "🏡", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", gradient: "from-emerald-500 to-teal-500" },
-  beauty: { icon: "💄", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", gradient: "from-purple-500 to-violet-500" },
-  sports: { icon: "💪", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", gradient: "from-orange-500 to-amber-500" },
-  toys: { icon: "🧸", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", gradient: "from-yellow-500 to-orange-500" },
-  pets: { icon: "🐾", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", gradient: "from-amber-500 to-yellow-600" },
-  auto: { icon: "🚗", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400", gradient: "from-cyan-500 to-blue-500" },
-  general: { icon: "📦", color: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400", gradient: "from-zinc-500 to-zinc-600" },
+import {
+  Cpu, Shirt, Home, Sparkle, Dumbbell, Gamepad2, PawPrint, Car, Box,
+} from "lucide-react";
+
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  electronics: Cpu, fashion: Shirt, home: Home, beauty: Sparkle,
+  sports: Dumbbell, toys: Gamepad2, pets: PawPrint, auto: Car, general: Box,
+};
+
+const CATEGORY_META: Record<string, { color: string; gradient: string }> = {
+  electronics: { color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", gradient: "from-blue-500 to-indigo-500" },
+  fashion: { color: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400", gradient: "from-pink-500 to-rose-500" },
+  home: { color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", gradient: "from-emerald-500 to-teal-500" },
+  beauty: { color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", gradient: "from-purple-500 to-violet-500" },
+  sports: { color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", gradient: "from-orange-500 to-amber-500" },
+  toys: { color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", gradient: "from-yellow-500 to-orange-500" },
+  pets: { color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", gradient: "from-amber-500 to-yellow-600" },
+  auto: { color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400", gradient: "from-cyan-500 to-blue-500" },
+  general: { color: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400", gradient: "from-zinc-500 to-zinc-600" },
 };
 
 // Fallback static categories (used if API categories aren't loaded yet)
@@ -673,6 +682,7 @@ export default function DiscoverPage() {
         >
           {displayCategories.map((cat) => {
             const meta = CATEGORY_META[cat.id] || CATEGORY_META.general;
+            const CatIcon = CATEGORY_ICONS[cat.id] || Box;
             const isActive = category === cat.id;
             return (
               <button
@@ -684,7 +694,7 @@ export default function DiscoverPage() {
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
                 }`}
               >
-                {cat.id !== "all" && <span className="text-sm">{meta.icon}</span>}
+                {cat.id !== "all" && <CatIcon className="h-3 w-3" />}
                 {cat.name}
                 {cat.count > 0 && (
                   <span className={`text-[10px] ${isActive ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400"}`}>
@@ -708,6 +718,7 @@ export default function DiscoverPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {displayCategories.filter(c => c.id !== "all").map((cat) => {
             const meta = CATEGORY_META[cat.id] || CATEGORY_META.general;
+            const CatIcon = CATEGORY_ICONS[cat.id] || Box;
             const isActive = category === cat.id;
             return (
               <button
@@ -720,7 +731,9 @@ export default function DiscoverPage() {
                 }`}
               >
                 <div className={`absolute top-0 right-0 h-16 w-16 rounded-bl-[40px] opacity-10 bg-gradient-to-br ${meta.gradient}`} />
-                <span className="text-2xl">{meta.icon}</span>
+                <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${meta.color}`}>
+                  <CatIcon className="h-4 w-4" />
+                </div>
                 <p className="mt-1.5 text-sm font-semibold">{cat.name}</p>
                 {cat.count > 0 && (
                   <p className="text-[11px] text-zinc-400 mt-0.5">{cat.count} products</p>

@@ -47,32 +47,38 @@ interface StoreInfo {
   _count: { storeLinks: number; orders: number };
 }
 
-const PLATFORM_CONFIG: Record<string, { label: string; color: string; icon: string; gradient: string; bgLight: string }> = {
+import { ShoppingBag as ShopifyIcon, Code2, Tag, Music } from "lucide-react";
+
+const PLATFORM_ICONS: Record<string, React.ElementType> = {
+  SHOPIFY: ShopifyIcon, WOOCOMMERCE: Code2, EBAY: Tag, TIKTOK_SHOP: Music,
+};
+
+const PLATFORM_CONFIG: Record<string, { label: string; color: string; iconBg: string; gradient: string; bgLight: string }> = {
   SHOPIFY: {
     label: "Shopify",
     color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-    icon: "🛍️",
+    iconBg: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
     gradient: "from-green-500 to-emerald-600",
     bgLight: "bg-green-50 dark:bg-green-950/10",
   },
   WOOCOMMERCE: {
     label: "WooCommerce",
     color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-    icon: "🔮",
+    iconBg: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
     gradient: "from-purple-500 to-violet-600",
     bgLight: "bg-purple-50 dark:bg-purple-950/10",
   },
   EBAY: {
     label: "eBay",
     color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    icon: "🏷️",
+    iconBg: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
     gradient: "from-blue-500 to-cyan-600",
     bgLight: "bg-blue-50 dark:bg-blue-950/10",
   },
   TIKTOK_SHOP: {
     label: "TikTok Shop",
     color: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
-    icon: "🎵",
+    iconBg: "bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400",
     gradient: "from-pink-500 to-rose-600",
     bgLight: "bg-pink-50 dark:bg-pink-950/10",
   },
@@ -337,8 +343,8 @@ export default function StoresPage() {
                   {/* Store header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl ${cfg.bgLight}`}>
-                        {cfg.icon}
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${cfg.iconBg}`}>
+                        {(() => { const PIcon = PLATFORM_ICONS[store.platform] || ShopifyIcon; return <PIcon className="h-5 w-5" />; })()}
                       </div>
                       <div>
                         <h3 className="text-sm font-bold">{store.name}</h3>
@@ -488,8 +494,8 @@ export default function StoresPage() {
                           : "border-zinc-100 opacity-40 dark:border-zinc-800 cursor-not-allowed"
                       }`}
                     >
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${cfg.bgLight}`}>
-                        {cfg.icon}
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${cfg.iconBg}`}>
+                        {(() => { const PIcon = PLATFORM_ICONS[key] || ShopifyIcon; return <PIcon className="h-5 w-5" />; })()}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-bold">{cfg.label}</p>
@@ -514,7 +520,7 @@ export default function StoresPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <span className="text-xl">{PLATFORM_CONFIG[selectedPlatform]?.icon}</span>
+                  {(() => { const PIcon = PLATFORM_ICONS[selectedPlatform] || ShopifyIcon; return <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${PLATFORM_CONFIG[selectedPlatform]?.iconBg || "bg-green-100 text-green-600"}`}><PIcon className="h-4 w-4" /></div>; })()}
                   Connect {PLATFORM_CONFIG[selectedPlatform]?.label} Store
                 </DialogTitle>
                 <DialogDescription>Enter your store details to connect.</DialogDescription>

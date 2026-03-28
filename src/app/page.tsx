@@ -306,22 +306,24 @@ export default function LandingPage() {
           <p className="text-sm font-semibold uppercase tracking-widest text-gray-400">
             Integrates with your favorite platforms
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-8 md:gap-12">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 md:gap-10">
             {[
-              { name: "Shopify", icon: "🛍️" },
-              { name: "AliExpress", icon: "🛒" },
-              { name: "CJ Dropshipping", icon: "📦" },
-              { name: "Alibaba / 1688", icon: "🏭" },
-              { name: "WooCommerce", icon: "🔮" },
-              { name: "eBay", icon: "🏷️" },
-              { name: "TikTok Shop", icon: "🎵" },
-              { name: "Google Analytics", icon: "📊" },
+              { name: "Shopify", color: "bg-green-500" },
+              { name: "AliExpress", color: "bg-red-500" },
+              { name: "CJ Dropshipping", color: "bg-blue-500" },
+              { name: "Alibaba", color: "bg-orange-500" },
+              { name: "WooCommerce", color: "bg-purple-500" },
+              { name: "eBay", color: "bg-blue-600" },
+              { name: "TikTok Shop", color: "bg-pink-500" },
+              { name: "Google Analytics", color: "bg-amber-500" },
             ].map((platform) => (
               <div
                 key={platform.name}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
+                className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-sm transition-shadow hover:shadow-md"
               >
-                <span className="text-xl">{platform.icon}</span>
+                <div className={`h-7 w-7 rounded-lg ${platform.color} flex items-center justify-center text-white text-xs font-bold`}>
+                  {platform.name[0]}
+                </div>
                 <span className="text-sm font-semibold text-gray-700">{platform.name}</span>
               </div>
             ))}

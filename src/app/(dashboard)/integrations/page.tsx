@@ -16,6 +16,13 @@ import {
   Zap,
   Shield,
   Tag,
+  ShoppingBag,
+  Code2,
+  Music,
+  Factory,
+  ShoppingCart,
+  BarChart2,
+  Megaphone,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,8 +36,8 @@ interface Integration {
   name: string;
   description: string;
   longDescription: string;
-  icon: string;
-  category: "supplier" | "marketplace" | "tool" | "analytics";
+  icon: React.ElementType;
+  category: "supplier" | "marketplace" | "analytics";
   status: IntegrationStatus;
   features: string[];
   pricing: string;
@@ -46,7 +53,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Source millions of products directly from AliExpress suppliers",
     longDescription:
       "Connect directly to AliExpress through our RapidAPI integration. Access millions of products, compare suppliers, track prices, and import products in one click.",
-    icon: "🛒",
+    icon: ShoppingCart,
     category: "supplier",
     status: "connected",
     features: [
@@ -67,7 +74,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Connect your Shopify store for seamless product management",
     longDescription:
       "Full Shopify OAuth integration. Push products directly to your store, sync inventory and orders in real-time, and manage everything from OptiCart.",
-    icon: "🛍️",
+    icon: ShoppingBag,
     category: "marketplace",
     status: "available",
     features: [
@@ -89,7 +96,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Global fulfillment with warehouses in US, EU, and Asia",
     longDescription:
       "CJ Dropshipping offers free product sourcing, quality inspection, and global warehousing. Faster shipping times with local warehouses and competitive pricing.",
-    icon: "📦",
+    icon: Package,
     category: "supplier",
     status: "coming_soon",
     features: [
@@ -110,7 +117,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Source wholesale products directly from Chinese manufacturers",
     longDescription:
       "Access Alibaba and 1688 factory-direct pricing. Get the lowest costs by sourcing directly from manufacturers with MOQ as low as 1 unit for many products.",
-    icon: "🏭",
+    icon: Factory,
     category: "supplier",
     status: "coming_soon",
     features: [
@@ -131,7 +138,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Connect your WordPress/WooCommerce store",
     longDescription:
       "Integrate with WooCommerce stores running on WordPress. Sync products, inventory, and orders seamlessly with REST API integration.",
-    icon: "🔮",
+    icon: Code2,
     category: "marketplace",
     status: "coming_soon",
     features: [
@@ -152,7 +159,7 @@ const INTEGRATIONS: Integration[] = [
     description: "List and sell products on eBay marketplace",
     longDescription:
       "Connect your eBay seller account to list products, manage orders, and track inventory across eBay marketplaces worldwide.",
-    icon: "🏷️",
+    icon: Tag,
     category: "marketplace",
     status: "coming_soon",
     features: [
@@ -173,7 +180,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Sell products through TikTok's built-in shop feature",
     longDescription:
       "Tap into TikTok's massive audience by listing products on TikTok Shop. Leverage viral content and creator partnerships to drive sales.",
-    icon: "🎵",
+    icon: Music,
     category: "marketplace",
     status: "coming_soon",
     features: [
@@ -194,7 +201,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Track store performance with advanced analytics",
     longDescription:
       "Connect Google Analytics to track visitor behavior, conversion rates, and marketing performance across all your stores.",
-    icon: "📊",
+    icon: BarChart2,
     category: "analytics",
     status: "coming_soon",
     features: [
@@ -215,7 +222,7 @@ const INTEGRATIONS: Integration[] = [
     description: "Run targeted ads and track ROAS from your dashboard",
     longDescription:
       "Integrate with Meta Ads to create campaigns, track return on ad spend, and optimize your marketing directly from OptiCart.",
-    icon: "📱",
+    icon: Megaphone,
     category: "analytics",
     status: "coming_soon",
     features: [
@@ -341,8 +348,8 @@ export default function IntegrationsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100 text-xl dark:bg-zinc-800">
-                      {integration.icon}
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${integration.gradient} text-white`}>
+                      <integration.icon className="h-5 w-5" />
                     </div>
                     <div>
                       <CardTitle className="text-base">{integration.name}</CardTitle>

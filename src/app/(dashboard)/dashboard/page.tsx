@@ -16,6 +16,7 @@ import {
   Clock,
   Store,
   ChevronRight,
+  Truck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -150,14 +151,14 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-const ACTIVITY_ICONS: Record<string, string> = {
-  truck: "📦",
-  cart: "🛒",
-  box: "📋",
-  sync: "🔄",
-  import: "📥",
-  alert: "⚠️",
-  check: "✅",
+const ACTIVITY_ICONS: Record<string, React.ElementType> = {
+  truck: Truck,
+  cart: ShoppingCart,
+  box: Package,
+  sync: Clock,
+  import: ArrowUpRight,
+  alert: Package,
+  check: Zap,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -608,7 +609,9 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {activities.map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <span className="text-sm mt-0.5 shrink-0">{ACTIVITY_ICONS[item.icon] ?? "📋"}</span>
+                  <span className="mt-0.5 shrink-0 flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800">
+                    {(() => { const Icon = ACTIVITY_ICONS[item.icon] ?? Package; return <Icon className="h-3 w-3 text-zinc-500" />; })()}
+                  </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-zinc-700 dark:text-zinc-300 truncate">{item.text}</p>
                     <p className="text-[10px] text-zinc-400 mt-0.5">{item.time}</p>
