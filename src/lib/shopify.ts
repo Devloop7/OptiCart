@@ -3,7 +3,7 @@ import crypto from "crypto";
 const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY || "";
 const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET || "";
 const SHOPIFY_SCOPES =
-  "read_products,write_products,read_orders,write_orders,read_inventory,write_inventory,read_fulfillments,write_fulfillments";
+  "read_products,write_products,read_orders,write_orders,read_inventory,write_inventory,read_fulfillments,write_fulfillments,read_locations";
 const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 export function buildShopifyAuthUrl(shop: string, state: string): string {

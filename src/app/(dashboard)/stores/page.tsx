@@ -87,7 +87,7 @@ const PLATFORM_CONFIG: Record<string, { label: string; color: string; iconBg: st
 
 const PLATFORM_HINTS: Record<string, { desc: string; placeholder: string; suffix: string; help: string }> = {
   SHOPIFY: {
-    desc: "Connect via Shopify OAuth",
+    desc: "One-click install — just enter your store URL",
     placeholder: "mystore.myshopify.com",
     suffix: ".myshopify.com",
     help: "Enter your store name or full Shopify URL",
@@ -183,19 +183,36 @@ export default function StoresPage() {
       const hint = PLATFORM_HINTS[selectedPlatform];
       let domain = shopDomain.trim();
 
-      // Auto-append platform suffix if user just entered a store name
       if (!domain.includes(".") && hint?.suffix) {
         domain = domain + hint.suffix;
       } else if (!domain.includes(".")) {
         domain = domain + ".com";
       }
 
-      // Strip protocol
       domain = domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
-      const name = storeName.trim() || domain.split(".")[0];
+      // For Shopify: use OAuth flow (redirects to Shopify for approval)
+      if (selectedPlatform === "SHOPIFY") {
+        const res = await fetch("/api/shopify/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop: domain }),
+        });
+        const json = await res.json();
+        if (json.ok && json.data?.authUrl) {
+          // Redirect to Shopify OAuth consent screen
+          window.location.href = json.data.authUrl;
+          return; // Page will redirect
+        } else {
+          setConnectError(json.error || "Failed to connect to Shopify");
+          setConnectStep("details");
+          setConnecting(false);
+          return;
+        }
+      }
 
-      // Use the new connect endpoint that verifies the token
+      // For other platforms: use direct connect
+      const name = storeName.trim() || domain.split(".")[0];
       const res = await fetch("/api/stores/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -203,7 +220,6 @@ export default function StoresPage() {
           name,
           platform: selectedPlatform,
           domain,
-          accessToken: accessToken.trim() || undefined,
         }),
       });
 
@@ -553,7 +569,7 @@ export default function StoresPage() {
                 </DialogTitle>
                 <DialogDescription>
                   {selectedPlatform === "SHOPIFY"
-                    ? "Enter your Shopify store URL and Admin API access token."
+                    ? "Enter your Shopify store URL. You'll be redirected to Shopify to approve access."
                     : `Enter your ${PLATFORM_CONFIG[selectedPlatform]?.label} store details.`}
                 </DialogDescription>
               </DialogHeader>
@@ -582,23 +598,21 @@ export default function StoresPage() {
                   )}
                 </div>
 
-                {/* Access Token — Shopify */}
+                {/* Shopify OAuth info */}
                 {selectedPlatform === "SHOPIFY" && (
-                  <div>
-                    <label className="text-sm font-medium">Admin API Access Token</label>
-                    <div className="relative mt-1">
-                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                      <Input
-                        value={accessToken}
-                        onChange={(e) => { setAccessToken(e.target.value); setConnectError(""); }}
-                        placeholder="shpat_xxxxxxxxxxxxxxxxxxxxx"
-                        className="pl-10 font-mono text-xs"
-                        type="password"
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      Get this from Shopify Admin &gt; Settings &gt; Apps &gt; Develop apps &gt; your app
-                    </p>
+                  <div className="rounded-lg bg-green-50 p-3 dark:bg-green-950/20 space-y-2">
+                    <p className="text-xs font-semibold text-green-800 dark:text-green-300">One-click connection</p>
+                    {[
+                      "You'll be redirected to Shopify to approve",
+                      "OptiCart gets permission to manage products & orders",
+                      "No passwords or tokens needed",
+                      "You can revoke access anytime from Shopify",
+                    ].map((text) => (
+                      <div key={text} className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        {text}
+                      </div>
+                    ))}
                   </div>
                 )}
 
