@@ -30,15 +30,17 @@ export async function POST(req: NextRequest) {
       // Ensure domain ends with .myshopify.com for API calls
       let apiDomain = domain;
       if (!apiDomain.endsWith(".myshopify.com")) {
-        // Try to fix common issues
         apiDomain = apiDomain.replace(/\.myshopify\.com.*$/, ".myshopify.com");
       }
+
+      // Clean the token - remove whitespace, quotes
+      const cleanToken = data.accessToken.trim().replace(/^['"]|['"]$/g, "");
 
       try {
         const apiUrl = `https://${apiDomain}/admin/api/2024-10/shop.json`;
         const res = await fetch(apiUrl, {
           headers: {
-            "X-Shopify-Access-Token": data.accessToken,
+            "X-Shopify-Access-Token": cleanToken,
             "Content-Type": "application/json",
           },
         });
@@ -50,29 +52,19 @@ export async function POST(req: NextRequest) {
           if (json.shop?.name) {
             data.name = json.shop.name;
           }
-          // Use the correct myshopify domain
           if (json.shop?.myshopify_domain) {
             domain = json.shop.myshopify_domain;
           }
+          // Update the token to the clean version
+          data.accessToken = cleanToken;
         } else {
-          const text = await res.text();
-          if (res.status === 401 || res.status === 403) {
-            return error(
-              "Invalid access token. Make sure you copied the full token starting with 'shpat_' from your Shopify custom app.",
-              400
-            );
-          }
-          return error(
-            `Shopify returned error ${res.status}. Check your store URL and token. URL tried: ${apiDomain}`,
-            400
-          );
+          // Still save the store but mark as unverified
+          // so the user can at least see it and retry
+          verified = false;
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        return error(
-          `Could not reach Shopify at ${apiDomain}. Check the store URL is correct. (${message})`,
-          400
-        );
+      } catch {
+        // Network error - save anyway as unverified
+        verified = false;
       }
     }
 
