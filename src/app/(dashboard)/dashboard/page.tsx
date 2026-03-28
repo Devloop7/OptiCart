@@ -404,6 +404,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Welcome banner for new users */}
+      {d.activeProducts === 0 && d.totalOrders === 0 && (
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-6 text-white">
+          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative">
+            <h2 className="text-xl font-bold">Welcome to OptiCart!</h2>
+            <p className="mt-1 text-sm text-white/80 max-w-lg">
+              Get started by connecting your Shopify store and importing your first products from our catalog of 500+ AliExpress items.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a href="/stores" className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-4 py-2 text-sm font-medium hover:bg-white/30 transition-colors">
+                <Store className="h-4 w-4" /> Connect Store
+              </a>
+              <a href="/products/discover" className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-4 py-2 text-sm font-medium hover:bg-white/30 transition-colors">
+                <Search className="h-4 w-4" /> Browse Products
+              </a>
+              <a href="/onboarding" className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 backdrop-blur-sm px-4 py-2 text-sm font-medium hover:bg-white/20 transition-colors">
+                <Zap className="h-4 w-4" /> Setup Wizard
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ------------------------------------------------------------------ */}
       {/*  KPI Cards                                                         */}
       {/* ------------------------------------------------------------------ */}

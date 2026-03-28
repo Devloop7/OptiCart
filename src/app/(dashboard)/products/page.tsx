@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Search, Upload, Play, Pause, Globe, ArrowUpDown, FileSpreadsheet } from "lucide-react";
+import { Package, Search, Upload, Play, Pause, Globe, ArrowUpDown, FileSpreadsheet, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +113,27 @@ export default function ProductsPage() {
     }
   }
 
+  function exportCsv() {
+    if (products.length === 0) return;
+    const headers = ["Title", "Status", "Category", "Supplier Cost", "Retail Price", "Variants"];
+    const rows = products.map((p) => [
+      `"${p.title.replace(/"/g, '""')}"`,
+      p.status,
+      p.category || "",
+      costRange(p.variants ?? []),
+      priceRange(p.variants ?? []),
+      String(p.variants?.length ?? 0),
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `opticart-products-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function costRange(variants: Product["variants"]) {
     if (!variants || !variants.length) return "-";
     const costs = variants.map((v) => Number(v.supplierCost) || 0);
@@ -157,6 +178,12 @@ export default function ProductsPage() {
               Compare
             </Button>
           </Link>
+          {products.length > 0 && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportCsv}>
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </Button>
+          )}
           <Link href="/products/import">
             <Button size="sm" className="gap-1.5">
               <Upload className="h-3.5 w-3.5" />

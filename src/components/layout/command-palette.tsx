@@ -54,15 +54,49 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [productResults, setProductResults] = useState<CommandItem[]>([]);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
-  const filtered = query
+  // Search products from API when query is 3+ chars
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!open || query.length < 3) {
+      setProductResults([]);
+      return;
+    }
+    setSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/sourcing/search?q=${encodeURIComponent(query)}&limit=5`);
+        const json = await res.json();
+        if (json.ok && json.data?.products) {
+          setProductResults(
+            json.data.products.slice(0, 5).map((p: { externalId: string; title: string; price: number }) => ({
+              id: `product-${p.externalId}`,
+              label: p.title,
+              description: `$${Number(p.price).toFixed(2)} — Click to import`,
+              icon: Package,
+              href: `/products/import?productId=${p.externalId}`,
+              category: "Products",
+            }))
+          );
+        }
+      } catch {}
+      setSearching(false);
+    }, 400);
+  }, [query, open]);
+
+  const commandResults = query
     ? COMMANDS.filter(
         (cmd) =>
           cmd.label.toLowerCase().includes(query.toLowerCase()) ||
           (cmd.description?.toLowerCase().includes(query.toLowerCase()))
       )
     : COMMANDS;
+
+  const filtered = [...commandResults, ...productResults];
 
   // Group by category
   const grouped: Record<string, CommandItem[]> = {};
