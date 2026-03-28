@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save, ExternalLink, Package, DollarSign } from "lucide-react";
+import { ArrowLeft, Save, ExternalLink, Package, DollarSign, Upload, Loader2, Store, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,40 @@ export default function ProductDetailPage() {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [shippingEstimate, setShippingEstimate] = useState(2.5);
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [pushing, setPushing] = useState(false);
+  const [stores, setStores] = useState<Array<{ id: string; name: string; platform: string; isActive: boolean }>>([]);
+
+  // Load stores for push-to-store
+  useEffect(() => {
+    fetch("/api/stores")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) setStores((json.data ?? []).filter((s: { isActive: boolean }) => s.isActive));
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handlePushToStore(storeId: string) {
+    setPushing(true);
+    try {
+      const res = await fetch("/api/shopify/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, storeId }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setSaveMessage({ type: "success", text: "Product pushed to store!" });
+      } else {
+        setSaveMessage({ type: "error", text: json.error ?? "Failed to push product." });
+      }
+    } catch {
+      setSaveMessage({ type: "error", text: "Network error." });
+    } finally {
+      setPushing(false);
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/products/${productId}`)
@@ -193,10 +227,42 @@ export default function ProductDetailPage() {
             {status}
           </Badge>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {stores.length > 0 && (
+            <div className="relative group">
+              <Button
+                variant="outline"
+                disabled={pushing}
+                className="gap-1.5"
+              >
+                {pushing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Push to Store
+              </Button>
+              <div className="invisible group-hover:visible absolute right-0 top-full z-10 mt-1 min-w-[180px] rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                {stores.map((store) => (
+                  <button
+                    key={store.id}
+                    onClick={() => handlePushToStore(store.id)}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <Store className="h-3.5 w-3.5 text-zinc-400" />
+                    {store.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {stores.length === 0 && (
+            <Button variant="outline" onClick={() => router.push("/stores")} className="gap-1.5">
+              <Store className="h-4 w-4" />
+              Connect Store
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
       {saveMessage && (
