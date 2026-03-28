@@ -23,6 +23,7 @@ import {
   Link2,
   Wifi,
   WifiOff,
+  Lock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ const PLATFORM_HINTS: Record<string, { desc: string; placeholder: string; suffix
   },
 };
 
-type ConnectStep = "platform" | "domain" | "connecting" | "success";
+type ConnectStep = "platform" | "details" | "connecting" | "success";
 
 export default function StoresPage() {
   const [stores, setStores] = useState<StoreInfo[]>([]);
@@ -121,6 +122,7 @@ export default function StoresPage() {
   const [selectedPlatform, setSelectedPlatform] = useState("SHOPIFY");
   const [shopDomain, setShopDomain] = useState("");
   const [storeName, setStoreName] = useState("");
+  const [accessToken, setAccessToken] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -168,6 +170,7 @@ export default function StoresPage() {
     setSelectedPlatform("SHOPIFY");
     setShopDomain("");
     setStoreName("");
+    setAccessToken("");
     setConnectError("");
   }
 
@@ -192,31 +195,30 @@ export default function StoresPage() {
 
       const name = storeName.trim() || domain.split(".")[0];
 
-      // Create the store directly as connected
-      const res = await fetch("/api/stores", {
+      // Use the new connect endpoint that verifies the token
+      const res = await fetch("/api/stores/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
           platform: selectedPlatform,
           domain,
+          accessToken: accessToken.trim() || undefined,
         }),
       });
 
       const json = await res.json();
 
       if (json.ok) {
-        // Simulate brief connection delay for UX
-        await new Promise((r) => setTimeout(r, 1500));
         setConnectStep("success");
         fetchStores();
       } else {
         setConnectError(json.error || "Failed to connect store");
-        setConnectStep("domain");
+        setConnectStep("details");
       }
     } catch {
       setConnectError("Network error. Please try again.");
-      setConnectStep("domain");
+      setConnectStep("details");
     } finally {
       setConnecting(false);
     }
@@ -521,7 +523,7 @@ export default function StoresPage() {
                   return (
                     <button
                       key={key}
-                      onClick={() => { setSelectedPlatform(key); setConnectStep("domain"); }}
+                      onClick={() => { setSelectedPlatform(key); setConnectStep("details"); }}
                       className="flex w-full items-center gap-4 rounded-xl border-2 border-zinc-200 p-4 text-left transition-all hover:border-indigo-400 hover:bg-indigo-50/30 dark:border-zinc-700 dark:hover:border-indigo-600 dark:hover:bg-indigo-950/10 cursor-pointer"
                     >
                       <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${cfg.iconBg}`}>
@@ -541,27 +543,22 @@ export default function StoresPage() {
             </>
           )}
 
-          {/* Step 2: Enter domain */}
-          {connectStep === "domain" && (
+          {/* Step 2: Store details + access token */}
+          {connectStep === "details" && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   {(() => { const PIcon = PLATFORM_ICONS[selectedPlatform] || ShopifyIcon; return <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${PLATFORM_CONFIG[selectedPlatform]?.iconBg || "bg-green-100 text-green-600"}`}><PIcon className="h-4 w-4" /></div>; })()}
                   Connect {PLATFORM_CONFIG[selectedPlatform]?.label} Store
                 </DialogTitle>
-                <DialogDescription>Enter your store details to connect.</DialogDescription>
+                <DialogDescription>
+                  {selectedPlatform === "SHOPIFY"
+                    ? "Enter your Shopify store URL and Admin API access token."
+                    : `Enter your ${PLATFORM_CONFIG[selectedPlatform]?.label} store details.`}
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 pt-2">
-                <div>
-                  <label className="text-sm font-medium">Store Name</label>
-                  <Input
-                    value={storeName}
-                    onChange={(e) => setStoreName(e.target.value)}
-                    placeholder="My Awesome Store"
-                    className="mt-1"
-                  />
-                  <p className="mt-1 text-xs text-zinc-400">A name to identify this store in OptiCart</p>
-                </div>
+                {/* Store URL */}
                 <div>
                   <label className="text-sm font-medium">Store URL</label>
                   <div className="relative mt-1">
@@ -570,14 +567,12 @@ export default function StoresPage() {
                       value={shopDomain}
                       onChange={(e) => {
                         let val = e.target.value.trim();
-                        // Strip https:// or http:// prefix automatically
                         val = val.replace(/^https?:\/\//, "");
                         setShopDomain(val);
                         setConnectError("");
                       }}
                       placeholder={PLATFORM_HINTS[selectedPlatform]?.placeholder || "mystore.com"}
                       className="pl-10"
-                      onKeyDown={(e) => { if (e.key === "Enter" && shopDomain.trim()) connectStore(); }}
                     />
                   </div>
                   {shopDomain.trim() && !shopDomain.includes(".") && PLATFORM_HINTS[selectedPlatform]?.suffix && (
@@ -585,27 +580,57 @@ export default function StoresPage() {
                       Will connect to: <strong>{shopDomain.trim()}{PLATFORM_HINTS[selectedPlatform].suffix}</strong>
                     </p>
                   )}
-                  {!shopDomain.trim() && (
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {PLATFORM_HINTS[selectedPlatform]?.help || "Enter your store URL"}
-                    </p>
-                  )}
                 </div>
 
-                {/* Trust signals */}
-                <div className="rounded-lg bg-zinc-50 p-3 space-y-2 dark:bg-zinc-800/50">
-                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">What happens next</p>
-                  {[
-                    { icon: Link2, text: `We securely connect to your ${PLATFORM_CONFIG[selectedPlatform]?.label} store` },
-                    { icon: Package, text: "OptiCart can push products & sync inventory to your store" },
-                    { icon: Settings, text: "You can disconnect anytime from this page" },
-                  ].map((item) => (
-                    <div key={item.text} className="flex items-center gap-2 text-xs text-zinc-500">
-                      <item.icon className="h-3 w-3 shrink-0 text-emerald-500" />
-                      {item.text}
+                {/* Access Token — Shopify */}
+                {selectedPlatform === "SHOPIFY" && (
+                  <div>
+                    <label className="text-sm font-medium">Admin API Access Token</label>
+                    <div className="relative mt-1">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                      <Input
+                        value={accessToken}
+                        onChange={(e) => { setAccessToken(e.target.value); setConnectError(""); }}
+                        placeholder="shpat_xxxxxxxxxxxxxxxxxxxxx"
+                        className="pl-10 font-mono text-xs"
+                        type="password"
+                      />
                     </div>
-                  ))}
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Get this from Shopify Admin &gt; Settings &gt; Apps &gt; Develop apps &gt; your app
+                    </p>
+                  </div>
+                )}
+
+                {/* Store Name (optional) */}
+                <div>
+                  <label className="text-sm font-medium">Store Name <span className="text-zinc-400 font-normal">(optional)</span></label>
+                  <Input
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    placeholder="Auto-detected from your store"
+                    className="mt-1"
+                  />
                 </div>
+
+                {/* How to get token */}
+                {selectedPlatform === "SHOPIFY" && (
+                  <details className="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200">
+                      How do I get my access token?
+                    </summary>
+                    <div className="px-3 pb-3 space-y-1.5 text-xs text-zinc-500">
+                      <p>1. Go to your Shopify Admin &gt; <strong>Settings</strong></p>
+                      <p>2. Click <strong>Apps and sales channels</strong></p>
+                      <p>3. Click <strong>Develop apps</strong> &gt; <strong>Create an app</strong></p>
+                      <p>4. Name it <strong>OptiCart</strong></p>
+                      <p>5. Click <strong>Configure Admin API scopes</strong></p>
+                      <p>6. Enable: write_products, read_orders, write_inventory</p>
+                      <p>7. Click <strong>Install app</strong></p>
+                      <p>8. Copy the <strong>Admin API access token</strong></p>
+                    </div>
+                  </details>
+                )}
 
                 {connectError && (
                   <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
