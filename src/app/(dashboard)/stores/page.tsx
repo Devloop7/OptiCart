@@ -84,6 +84,33 @@ const PLATFORM_CONFIG: Record<string, { label: string; color: string; iconBg: st
   },
 };
 
+const PLATFORM_HINTS: Record<string, { desc: string; placeholder: string; suffix: string; help: string }> = {
+  SHOPIFY: {
+    desc: "Connect via Shopify OAuth",
+    placeholder: "mystore.myshopify.com",
+    suffix: ".myshopify.com",
+    help: "Enter your store name or full Shopify URL",
+  },
+  WOOCOMMERCE: {
+    desc: "Connect via REST API",
+    placeholder: "mystore.com",
+    suffix: "",
+    help: "Enter your WooCommerce store domain",
+  },
+  EBAY: {
+    desc: "Connect your eBay seller account",
+    placeholder: "my-ebay-store",
+    suffix: "",
+    help: "Enter your eBay store name or seller ID",
+  },
+  TIKTOK_SHOP: {
+    desc: "Connect your TikTok Shop",
+    placeholder: "my-tiktok-shop",
+    suffix: "",
+    help: "Enter your TikTok Shop name",
+  },
+};
+
 type ConnectStep = "platform" | "domain" | "connecting" | "success";
 
 export default function StoresPage() {
@@ -150,9 +177,18 @@ export default function StoresPage() {
     setConnectStep("connecting");
 
     try {
-      const domain = shopDomain.trim().includes(".")
-        ? shopDomain.trim()
-        : `${shopDomain.trim()}.myshopify.com`;
+      const hint = PLATFORM_HINTS[selectedPlatform];
+      let domain = shopDomain.trim();
+
+      // Auto-append platform suffix if user just entered a store name
+      if (!domain.includes(".") && hint?.suffix) {
+        domain = domain + hint.suffix;
+      } else if (!domain.includes(".")) {
+        domain = domain + ".com";
+      }
+
+      // Strip protocol
+      domain = domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
       const name = storeName.trim() || domain.split(".")[0];
 
@@ -482,17 +518,11 @@ export default function StoresPage() {
               </DialogHeader>
               <div className="space-y-3 pt-2">
                 {Object.entries(PLATFORM_CONFIG).map(([key, cfg]) => {
-                  const available = key === "SHOPIFY";
                   return (
                     <button
                       key={key}
-                      onClick={() => { if (available) { setSelectedPlatform(key); setConnectStep("domain"); } }}
-                      disabled={!available}
-                      className={`flex w-full items-center gap-4 rounded-xl border-2 p-4 text-left transition-all ${
-                        available
-                          ? "border-zinc-200 hover:border-green-400 hover:bg-green-50/50 dark:border-zinc-700 dark:hover:border-green-600 dark:hover:bg-green-950/20 cursor-pointer"
-                          : "border-zinc-100 opacity-40 dark:border-zinc-800 cursor-not-allowed"
-                      }`}
+                      onClick={() => { setSelectedPlatform(key); setConnectStep("domain"); }}
+                      className="flex w-full items-center gap-4 rounded-xl border-2 border-zinc-200 p-4 text-left transition-all hover:border-indigo-400 hover:bg-indigo-50/30 dark:border-zinc-700 dark:hover:border-indigo-600 dark:hover:bg-indigo-950/10 cursor-pointer"
                     >
                       <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${cfg.iconBg}`}>
                         {(() => { const PIcon = PLATFORM_ICONS[key] || ShopifyIcon; return <PIcon className="h-5 w-5" />; })()}
@@ -500,14 +530,10 @@ export default function StoresPage() {
                       <div className="flex-1">
                         <p className="text-sm font-bold">{cfg.label}</p>
                         <p className="text-xs text-zinc-400">
-                          {available ? "Connect with OAuth — secure & instant" : "Coming soon"}
+                          {PLATFORM_HINTS[key]?.desc || "Connect your store"}
                         </p>
                       </div>
-                      {available ? (
-                        <ArrowRight className="h-4 w-4 text-zinc-400" />
-                      ) : (
-                        <Badge variant="secondary" className="text-[10px]">Soon</Badge>
-                      )}
+                      <ArrowRight className="h-4 w-4 text-zinc-400" />
                     </button>
                   );
                 })}
@@ -549,19 +575,19 @@ export default function StoresPage() {
                         setShopDomain(val);
                         setConnectError("");
                       }}
-                      placeholder="mystore.myshopify.com"
+                      placeholder={PLATFORM_HINTS[selectedPlatform]?.placeholder || "mystore.com"}
                       className="pl-10"
                       onKeyDown={(e) => { if (e.key === "Enter" && shopDomain.trim()) connectStore(); }}
                     />
                   </div>
-                  {shopDomain.trim() && !shopDomain.includes(".") && (
+                  {shopDomain.trim() && !shopDomain.includes(".") && PLATFORM_HINTS[selectedPlatform]?.suffix && (
                     <p className="mt-1 text-xs text-blue-500">
-                      Will connect to: <strong>{shopDomain.trim()}.myshopify.com</strong>
+                      Will connect to: <strong>{shopDomain.trim()}{PLATFORM_HINTS[selectedPlatform].suffix}</strong>
                     </p>
                   )}
                   {!shopDomain.trim() && (
                     <p className="mt-1 text-xs text-zinc-400">
-                      Enter your store name (e.g. mystore) or full URL
+                      {PLATFORM_HINTS[selectedPlatform]?.help || "Enter your store URL"}
                     </p>
                   )}
                 </div>
@@ -570,7 +596,7 @@ export default function StoresPage() {
                 <div className="rounded-lg bg-zinc-50 p-3 space-y-2 dark:bg-zinc-800/50">
                   <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">What happens next</p>
                   {[
-                    { icon: Link2, text: "We securely connect to your Shopify store via OAuth" },
+                    { icon: Link2, text: `We securely connect to your ${PLATFORM_CONFIG[selectedPlatform]?.label} store` },
                     { icon: Package, text: "OptiCart can push products & sync inventory to your store" },
                     { icon: Settings, text: "You can disconnect anytime from this page" },
                   ].map((item) => (
