@@ -338,10 +338,10 @@ export default function IntegrationsPage() {
                   : ""
               }`}
             >
-              {/* Gradient top */}
+              {/* Left accent bar */}
               <div
-                className={`h-1 bg-gradient-to-r ${integration.gradient} ${
-                  integration.status === "coming_soon" ? "opacity-30" : ""
+                className={`absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-gradient-to-b ${integration.gradient} ${
+                  integration.status === "coming_soon" ? "opacity-20" : "opacity-60"
                 }`}
               />
 

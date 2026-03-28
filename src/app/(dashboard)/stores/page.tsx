@@ -336,8 +336,8 @@ export default function StoresPage() {
             const isSyncing = syncingStoreId === store.id;
             return (
               <Card key={store.id} className={`group relative overflow-hidden transition-all hover:shadow-lg ${!store.isActive ? "opacity-60" : ""}`}>
-                {/* Gradient top bar */}
-                <div className={`h-1.5 bg-gradient-to-r ${cfg.gradient} ${!store.isActive ? "opacity-30" : ""}`} />
+                {/* Left accent bar */}
+                <div className={`absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-gradient-to-b ${cfg.gradient} ${!store.isActive ? "opacity-20" : "opacity-60"}`} />
 
                 <CardContent className="p-5">
                   {/* Store header */}

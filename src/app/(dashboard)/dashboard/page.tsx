@@ -321,7 +321,7 @@ export default function DashboardPage() {
       label: "Total Revenue",
       value: fmtFull(d.revenue),
       icon: DollarSign,
-      bgColor: "bg-blue-50 dark:bg-blue-950/30",
+      bgColor: "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800",
       iconBg: "bg-blue-500",
       sparkColor: "bg-blue-400",
       trend: "+12.5%",
@@ -333,7 +333,7 @@ export default function DashboardPage() {
       label: "Total Profit",
       value: fmtFull(d.profit),
       icon: TrendingUp,
-      bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
+      bgColor: "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800",
       iconBg: "bg-emerald-500",
       sparkColor: "bg-emerald-400",
       trend: "+8.3%",
@@ -345,7 +345,7 @@ export default function DashboardPage() {
       label: "Active Products",
       value: d.activeProducts.toLocaleString(),
       icon: Package,
-      bgColor: "bg-violet-50 dark:bg-violet-950/30",
+      bgColor: "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800",
       iconBg: "bg-violet-500",
       sparkColor: "bg-violet-400",
       trend: "+3",
@@ -357,7 +357,7 @@ export default function DashboardPage() {
       label: "New Orders",
       value: d.newOrders.toLocaleString(),
       icon: ShoppingCart,
-      bgColor: "bg-amber-50 dark:bg-amber-950/30",
+      bgColor: "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800",
       iconBg: "bg-amber-500",
       sparkColor: "bg-amber-400",
       trend: d.newOrders > 0 ? "+5.2%" : "0%",
@@ -407,8 +407,8 @@ export default function DashboardPage() {
 
       {/* Welcome banner for new users */}
       {d.activeProducts === 0 && d.totalOrders === 0 && (
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-6 text-white">
-          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative overflow-hidden rounded-xl bg-zinc-900 p-6 text-white dark:bg-zinc-800">
+          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-2xl" />
           <div className="relative">
             <h2 className="text-xl font-bold">Welcome to OptiCart!</h2>
             <p className="mt-1 text-sm text-white/80 max-w-lg">
