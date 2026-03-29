@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { success, error, handleApiError } from "@/lib/api-response";
 import { db } from "@/lib/db";
 import { getWorkspace } from "@/lib/get-user";
-import { pushProductToShopify } from "@/lib/shopify";
 
 export const dynamic = "force-dynamic";
 
@@ -33,36 +32,88 @@ export async function POST(req: NextRequest) {
     });
 
     if (!store) return error("Store not found or not connected", 404);
-    if (!store.accessToken) return error("Store has no access token. Please reconnect.", 400);
+    if (!store.accessToken) {
+      return error("Store has no access token. Please disconnect and reconnect your store.", 400);
+    }
     if (!store.domain) return error("Store has no domain configured", 400);
 
-    // Push to Shopify
+    // Build the Shopify product payload
     const images = Array.isArray(product.images)
-      ? (product.images as string[]).map((src) => ({ src }))
+      ? (product.images as string[])
+          .filter((src) => typeof src === "string" && src.length > 0)
+          .map((src) => {
+            // Fix protocol-relative URLs
+            let url = src;
+            if (url.startsWith("//")) url = `https:${url}`;
+            return { src: url };
+          })
+          .slice(0, 10)
       : [];
 
     const variants = product.variants.map((v) => ({
-      price: v.retailPrice.toString(),
+      price: String(Number(v.retailPrice) || 0),
       sku: v.sku || undefined,
       inventory_quantity: v.stock,
       option1: v.name,
+      inventory_management: "shopify",
     }));
 
-    const shopifyProduct = await pushProductToShopify(
-      store.domain,
-      store.accessToken,
-      {
+    const shopifyPayload = {
+      product: {
         title: product.title,
         body_html: product.description || "",
         vendor: "OptiCart",
         product_type: product.category || "General",
-        images: images.slice(0, 10),
+        status: "draft",
+        images: images.length > 0 ? images : undefined,
         variants: variants.length > 0 ? variants : undefined,
+      },
+    };
+
+    // Push to Shopify
+    const cleanDomain = store.domain.replace(/https?:\/\//, "").replace(/\/$/, "");
+    const apiUrl = `https://${cleanDomain}/admin/api/2024-10/products.json`;
+
+    console.log(`[Shopify Push] Pushing "${product.title}" to ${cleanDomain}`);
+
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": store.accessToken,
+      },
+      body: JSON.stringify(shopifyPayload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[Shopify Push] API error ${res.status}:`, text.slice(0, 500));
+
+      if (res.status === 401 || res.status === 403) {
+        // Token is invalid - mark store for reconnection
+        await db.store.update({
+          where: { id: store.id },
+          data: { isActive: false },
+        });
+        return error(
+          "Shopify access expired. Please disconnect and reconnect your store from the Stores page.",
+          401
+        );
       }
-    );
+
+      return error(
+        `Shopify error (${res.status}): ${text.slice(0, 200)}`,
+        400
+      );
+    }
+
+    const shopifyResponse = await res.json();
+    const shopifyProduct = shopifyResponse.product;
+    const externalId = shopifyProduct?.id?.toString();
+
+    console.log(`[Shopify Push] Success! Product ID: ${externalId}`);
 
     // Create/update store link
-    const externalId = shopifyProduct?.product?.id?.toString();
     await db.productStoreLink.upsert({
       where: {
         productId_storeId: { productId: product.id, storeId: store.id },
@@ -72,7 +123,7 @@ export async function POST(req: NextRequest) {
         storeId: store.id,
         externalProductId: externalId,
         externalUrl: externalId
-          ? `https://${store.domain}/admin/products/${externalId}`
+          ? `https://${cleanDomain}/admin/products/${externalId}`
           : null,
         isPushed: true,
         lastPushedAt: new Date(),
@@ -80,14 +131,13 @@ export async function POST(req: NextRequest) {
       update: {
         externalProductId: externalId,
         externalUrl: externalId
-          ? `https://${store.domain}/admin/products/${externalId}`
+          ? `https://${cleanDomain}/admin/products/${externalId}`
           : null,
         isPushed: true,
         lastPushedAt: new Date(),
       },
     });
 
-    // Update store sync time
     await db.store.update({
       where: { id: store.id },
       data: { lastSyncAt: new Date() },
@@ -96,8 +146,12 @@ export async function POST(req: NextRequest) {
     return success({
       pushed: true,
       shopifyProductId: externalId,
+      shopifyUrl: externalId
+        ? `https://${cleanDomain}/admin/products/${externalId}`
+        : null,
     });
   } catch (err) {
+    console.error("[Shopify Push] Error:", err);
     return handleApiError(err);
   }
 }

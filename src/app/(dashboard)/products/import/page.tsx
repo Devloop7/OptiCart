@@ -704,15 +704,39 @@ export default function ImportPage() {
                     </div>
 
                     {success && result?.productId && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          router.push(`/products/${result.productId}`)
-                        }
-                      >
-                        View
-                      </Button>
+                      <div className="flex gap-1.5 shrink-0">
+                        {selectedStore && (
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const r = await fetch("/api/shopify/push", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ productId: result.productId, storeId: selectedStore }),
+                                });
+                                const j = await r.json();
+                                if (j.ok) {
+                                  alert("Product pushed to your store!");
+                                } else {
+                                  alert(j.error || "Push failed");
+                                }
+                              } catch {
+                                alert("Network error");
+                              }
+                            }}
+                          >
+                            Push to Store
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => router.push(`/products/${result.productId}`)}
+                        >
+                          View
+                        </Button>
+                      </div>
                     )}
                   </div>
                 );
