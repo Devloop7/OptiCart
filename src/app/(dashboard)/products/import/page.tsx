@@ -133,8 +133,10 @@ export default function ImportPage() {
       .then((r) => r.json())
       .then((json) => {
         if (json.ok && Array.isArray(json.data)) {
-          setStores(json.data);
-          if (json.data.length > 0) setSelectedStore(json.data[0].id);
+          // Only show active stores
+          const active = json.data.filter((s: { isActive: boolean }) => s.isActive);
+          setStores(active);
+          if (active.length > 0) setSelectedStore(active[0].id);
         }
       })
       .catch(() => {});

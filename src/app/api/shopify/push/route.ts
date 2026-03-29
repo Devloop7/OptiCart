@@ -26,12 +26,20 @@ export async function POST(req: NextRequest) {
 
     if (!product) return error("Product not found", 404);
 
-    // Get the store
-    const store = await db.store.findFirst({
-      where: { id: storeId, workspaceId: workspace.id, isActive: true },
-    });
+    // Get the store - try by ID first, then fall back to any active store
+    let store = storeId
+      ? await db.store.findFirst({ where: { id: storeId, workspaceId: workspace.id, isActive: true } })
+      : null;
 
-    if (!store) return error("Store not found or not connected", 404);
+    if (!store) {
+      // Fall back to any active Shopify store in the workspace
+      store = await db.store.findFirst({
+        where: { workspaceId: workspace.id, isActive: true, platform: "SHOPIFY", accessToken: { not: null } },
+        orderBy: { lastSyncAt: "desc" },
+      });
+    }
+
+    if (!store) return error("No connected store found. Please connect your Shopify store first from the Stores page.", 404);
     if (!store.accessToken) {
       return error("Store has no access token. Please disconnect and reconnect your store.", 400);
     }
