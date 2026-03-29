@@ -28,20 +28,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Find the pending store with matching state
+    // Find the store by domain (any status - might be active from previous connection)
     const cleanShop = shop.replace(/https?:\/\//, "").replace(/\/$/, "");
     const store = await db.store.findFirst({
-      where: {
-        domain: cleanShop,
-        isActive: false,
-      },
+      where: { domain: cleanShop },
       orderBy: { createdAt: "desc" },
     });
 
     if (!store) {
-      console.error("[Shopify Callback] No pending store found for:", cleanShop);
+      console.error("[Shopify Callback] No store found for domain:", cleanShop);
       return NextResponse.redirect(new URL("/stores?error=invalid_state", baseUrl));
     }
+
+    console.log("[Shopify Callback] Found store:", store.id, "isActive:", store.isActive);
 
     // Exchange code for permanent access token
     console.log("[Shopify Callback] Exchanging code for token...");
