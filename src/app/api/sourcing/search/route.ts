@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { catalogService } from "@/lib/product-catalog";
 import { getProductProvider } from "@/lib/product-providers";
+import { getWorkspace } from "@/lib/get-user";
 
 export async function GET(req: NextRequest) {
   try {
+    await getWorkspace();
+
     const { searchParams } = req.nextUrl;
     const q = searchParams.get("q") ?? "";
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));

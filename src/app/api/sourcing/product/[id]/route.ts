@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { catalogService } from "@/lib/product-catalog";
 import { getProductProvider } from "@/lib/product-providers";
+import { getWorkspace } from "@/lib/get-user";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await getWorkspace();
+
     const { id } = await params;
 
     // Try cached product first

@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { createDefaultWorkspace } from "@/services/workspace.service";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db) as NextAuthOptions["adapter"],
@@ -81,34 +82,8 @@ export const authOptions: NextAuthOptions = {
           const membership = await db.membership.findFirst({
             where: { userId: user.id },
           });
-          // If no workspace yet, the createUser event will handle it for new users
-          // For existing users who linked Google later, create workspace if missing
           if (!membership) {
-            const slug =
-              (user.email?.split("@")[0] || "user").replace(/[^a-z0-9]/g, "-").slice(0, 30) +
-              "-" + Date.now().toString(36);
-            const workspace = await db.workspace.create({
-              data: { name: `${user.name || "My"}'s Workspace`, slug },
-            });
-            await db.membership.create({
-              data: { userId: user.id, workspaceId: workspace.id, role: "OWNER" },
-            });
-            const freePlan = await db.plan.findUnique({ where: { tier: "FREE" } });
-            if (freePlan) {
-              await db.subscription.create({
-                data: {
-                  workspaceId: workspace.id, planId: freePlan.id, status: "ACTIVE",
-                  currentPeriodStart: new Date(),
-                  currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
-                },
-              });
-            }
-            await db.workspaceSupplier.create({
-              data: { workspaceId: workspace.id, platform: "ALIEXPRESS", name: "AliExpress", isActive: true },
-            });
-            await db.pricingRule.create({
-              data: { workspaceId: workspace.id, name: "Default 2x Markup", multiplier: 2.0, fixedAddon: 0, minMarginPct: 20, isDefault: true },
-            });
+            await createDefaultWorkspace(user.id, user.name ?? null, user.email ?? null);
           }
         } catch (err) {
           console.error("Google signIn callback error:", err);
@@ -130,61 +105,6 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
       }
       return session;
-    },
-  },
-  events: {
-    // Auto-create workspace for new Google sign-in users
-    async createUser({ user }) {
-      if (!user.id || !user.email) return;
-
-      const slug =
-        user.email.split("@")[0].replace(/[^a-z0-9]/g, "-").slice(0, 30) +
-        "-" +
-        Date.now().toString(36);
-
-      const workspace = await db.workspace.create({
-        data: {
-          name: `${user.name || "My"}'s Workspace`,
-          slug,
-        },
-      });
-
-      await db.membership.create({
-        data: { userId: user.id, workspaceId: workspace.id, role: "OWNER" },
-      });
-
-      const freePlan = await db.plan.findUnique({ where: { tier: "FREE" } });
-      if (freePlan) {
-        await db.subscription.create({
-          data: {
-            workspaceId: workspace.id,
-            planId: freePlan.id,
-            status: "ACTIVE",
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
-          },
-        });
-      }
-
-      await db.workspaceSupplier.create({
-        data: {
-          workspaceId: workspace.id,
-          platform: "ALIEXPRESS",
-          name: "AliExpress",
-          isActive: true,
-        },
-      });
-
-      await db.pricingRule.create({
-        data: {
-          workspaceId: workspace.id,
-          name: "Default 2x Markup",
-          multiplier: 2.0,
-          fixedAddon: 0,
-          minMarginPct: 20,
-          isDefault: true,
-        },
-      });
     },
   },
 };

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { catalogService } from "@/lib/product-catalog";
 import { getProductProvider } from "@/lib/product-providers";
+import { getWorkspace } from "@/lib/get-user";
 
 export async function GET() {
   try {
+    await getWorkspace();
+
     // Try cached categories first
     const cachedCount = await catalogService.getCachedCount();
 

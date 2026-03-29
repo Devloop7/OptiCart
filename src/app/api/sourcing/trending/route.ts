@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { catalogService } from "@/lib/product-catalog";
 import { getProductProvider } from "@/lib/product-providers";
 import { db } from "@/lib/db";
+import { getWorkspace } from "@/lib/get-user";
 
 // Track whether auto-ingestion has been triggered this process lifetime
 let autoIngestTriggered = false;
 
 export async function GET(req: NextRequest) {
   try {
+    await getWorkspace();
+
     const { searchParams } = req.nextUrl;
     const category = searchParams.get("category") ?? undefined;
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
